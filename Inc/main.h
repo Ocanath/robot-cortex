@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f3xx_hal.h"
+#include "stm32f7xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -60,22 +60,25 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SWITCH_IN_Pin GPIO_PIN_1
-#define SWITCH_IN_GPIO_Port GPIOA
-#define EN_HP_Pin GPIO_PIN_5
-#define EN_HP_GPIO_Port GPIOA
-#define EN_3V3_Pin GPIO_PIN_6
-#define EN_3V3_GPIO_Port GPIOA
-#define NRF_CE_Pin GPIO_PIN_7
-#define NRF_CE_GPIO_Port GPIOA
+#define SWITCH_IN_Pin GPIO_PIN_0
+#define SWITCH_IN_GPIO_Port GPIOC
+#define NRF_SS_Pin GPIO_PIN_4
+#define NRF_SS_GPIO_Port GPIOA
 #define NRF_INT_Pin GPIO_PIN_0
 #define NRF_INT_GPIO_Port GPIOB
+#define NRF_CE_Pin GPIO_PIN_1
+#define NRF_CE_GPIO_Port GPIOB
+#define EN_3V3_Pin GPIO_PIN_2
+#define EN_3V3_GPIO_Port GPIOB
+#define EN_HP_Pin GPIO_PIN_10
+#define EN_HP_GPIO_Port GPIOB
+#define STAT_Pin GPIO_PIN_12
+#define STAT_GPIO_Port GPIOB
 #define MPU_INT_Pin GPIO_PIN_11
 #define MPU_INT_GPIO_Port GPIOA
+#define MPU_INT_EXTI_IRQn EXTI15_10_IRQn
 #define MPU_SS_Pin GPIO_PIN_12
 #define MPU_SS_GPIO_Port GPIOA
-#define NRF_SS_Pin GPIO_PIN_15
-#define NRF_SS_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
