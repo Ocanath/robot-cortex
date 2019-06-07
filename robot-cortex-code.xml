@@ -2,7 +2,7 @@
 <targetDefinitions xmlns="http://openstm32.org/stm32TargetDefinitions" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://openstm32.org/stm32TargetDefinitions stm32TargetDefinitions.xsd">
   <board id="robot-cortex-code">
     <name>robot-cortex-code</name>
-    <mcuId>STM32F730R8Tx</mcuId>  <!-- mcu-->
+    <mcuId>STM32F401RBTx</mcuId>  <!-- mcu-->
     <dbgIF>SWD</dbgIF>
     <dbgDEV>ST-LinkV2-1</dbgDEV>
   </board>
