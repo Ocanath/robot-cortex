@@ -64,13 +64,16 @@ int main(void)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
+			tx_fmt.v[frame-1] = tau[frame];
+//			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
+
 		for(int i = 1; i < 25; i++)
-			i2c_tx_buf[i]  = tx_fmt.d[i];
+			i2c_tx_buf[i]  = tx_fmt.d[i-1];
 		i2c_tx_buf[0] = 0xAD;
 
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 //		HAL_I2C_Master_Transmit_IT(&hi2c1, (0x50 << 1), i2c_tx_buf, 25);
+
 		if(rc == -1)
 			NVIC_SystemReset();
 //			reset_i2c();
