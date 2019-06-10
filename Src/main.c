@@ -59,7 +59,7 @@ int main(void)
 	hand_format_i2c tx_fmt;
 	hand_format_i2c rx_fmt;
 	uint8_t i2c_tx_buf[25];
-	HAL_Delay(5000);
+//	HAL_Delay(5000);
 	while (1)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
@@ -69,13 +69,18 @@ int main(void)
 			i2c_tx_buf[i]  = tx_fmt.d[i];
 		i2c_tx_buf[0] = 0xAD;
 
-//		handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
+		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 //		HAL_I2C_Master_Transmit_IT(&hi2c1, (0x50 << 1), i2c_tx_buf, 25);
+		if(rc == -1)
+			NVIC_SystemReset();
+//			reset_i2c();
 
-		HAL_I2C_Master_Receive_IT(&hi2c1, (0x50 << 1), rx_fmt.d, 24);
-
-		for(int frame = 1; frame < num_frames; frame++)
-			q[frame] = rx_fmt.v[frame-1]*0.0175f;
+//		HAL_I2C_Master_Receive_IT(&hi2c1, (0x50 << 1), rx_fmt.d, 24);
+		if(rc == 0)
+		{
+			for(int frame = 1; frame < num_frames; frame++)
+				q[frame] = rx_fmt.v[frame-1]*0.0175f;
+		}
 
 		uint8_t * fmt_ptr_rx_buf = (uint8_t * )uart_rx_buf;	//is the same memory
 		HAL_UART_Receive_IT(&huart1, fmt_ptr_rx_buf, num_bytes_frame_buf);

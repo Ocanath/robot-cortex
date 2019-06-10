@@ -29,22 +29,36 @@ void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 	i2c_master_state = I2C_TRANSMIT_READY;
 }
 
+
+void reset_i2c()
+{
+	I2C1->CR1 = I2C1->CR1 & (~0x1);	//clear bit zero for bus reset
+	while((I2C1->CR1 & 1) != 0);	//spin until it actually resets
+	I2C1->CR1 = I2C1->CR1 | 1;		//re-enable it
+	MX_I2C1_Init();
+}
 /*
  * for legacy support, but buggy (data alignment wise)
  */
-void handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size )
+int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size )
 {
+	int ret = 0;
 	if(i2c_master_state == I2C_RECIEVE_READY)	//first state. only progress if you are allowed by send_i2c_packet
 	{
-		HAL_I2C_Master_Receive_IT(hi2c, slave_address, rx_data, rx_size);
+		if(HAL_I2C_Master_Receive_IT(hi2c, slave_address, rx_data, rx_size) != HAL_OK)
+			ret = -1;
 		i2c_master_state = I2C_RECIEVE_BUSY;
 	}
 	else if(i2c_master_state == I2C_TRANSMIT_READY)
 	{
-		HAL_I2C_Master_Transmit_IT(hi2c, slave_address, tx_data, tx_size);
+		if(HAL_I2C_Master_Transmit_IT(hi2c, slave_address, tx_data, tx_size) != HAL_OK)
+			ret = -1;
 		i2c_master_state = I2C_TRANSMIT_BUSY;
 	}
+	return ret;
 }
+
+
 
 
 uint32_t i2c_busy_time()
