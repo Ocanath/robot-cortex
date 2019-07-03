@@ -2,7 +2,9 @@
 #include "i2c_master.h"
 #include "sin-math.h"
 
-const int num_frames = 7;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
+const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
+
+#define I2C_BASE 0x20
 
 
 uint8_t uart_rx_cplt_flag = 0;
@@ -13,22 +15,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 typedef union
 {
-	float v;
-	uint8_t d[4];
-}floatsend_t;
-typedef union
-{
 	uint32_t v;
 	uint8_t d[4];
 }uint_cast_t;
-
 
 typedef union
 {
 	uint8_t d[24];
 	float v[6];
 }hand_format_i2c;
-
 
 int main(void)
 {
@@ -56,34 +51,19 @@ int main(void)
 
 	uint32_t led_ts = 0;
 
-	hand_format_i2c tx_fmt;
-	hand_format_i2c rx_fmt;
-	uint8_t i2c_tx_buf[25];
-//	HAL_Delay(5000);
+	int sign[num_frames];
+	sign[0] = 1;
+	sign[1] = 1;
 	while (1)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
-		for(int frame = 1; frame < num_frames; frame++)
-			tx_fmt.v[frame-1] = tau[frame];
-//			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
 
-		for(int i = 1; i < 25; i++)
-			i2c_tx_buf[i]  = tx_fmt.d[i-1];
-		i2c_tx_buf[0] = 0xAD;
+//		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 
-		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
-//		HAL_I2C_Master_Transmit_IT(&hi2c1, (0x50 << 1), i2c_tx_buf, 25);
-
-		if(rc == -1)
-			NVIC_SystemReset();
-//			reset_i2c();
-
-//		HAL_I2C_Master_Receive_IT(&hi2c1, (0x50 << 1), rx_fmt.d, 24);
-		if(rc == 0)
-		{
-			for(int frame = 1; frame < num_frames; frame++)
-				q[frame] = rx_fmt.v[frame-1]*0.0175f;
-		}
+//		handle_i2c_motor_chain(&hi2c1, I2C_BASE, num_frames-1, q, tau, sign);
+//		tau[1] = 5.0f;
+		float tau_snd = 5.0f;
+		HAL_I2C_Master_Transmit_IT(&hi2c1, I2C_BASE<<1, (uint8_t *)(&tau_snd), 4);
 
 		uint8_t * fmt_ptr_rx_buf = (uint8_t * )uart_rx_buf;	//is the same memory
 		HAL_UART_Receive_IT(&huart1, fmt_ptr_rx_buf, num_bytes_frame_buf);
