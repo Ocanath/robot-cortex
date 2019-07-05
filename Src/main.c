@@ -64,25 +64,24 @@ int main(void)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			tx_fmt.v[frame-1] = tau[frame];
-//			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
+		{
+//			tx_fmt.v[frame-1] = tau[frame];
+			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
+		}
 
 		for(int i = 1; i < 25; i++)
 			i2c_tx_buf[i]  = tx_fmt.d[i-1];
-		i2c_tx_buf[0] = 0xAD;
+		i2c_tx_buf[0] = 0xAD;	//protected position control mode
 
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
-//		HAL_I2C_Master_Transmit_IT(&hi2c1, (0x50 << 1), i2c_tx_buf, 25);
 
 		if(rc == -1)
 			NVIC_SystemReset();
-//			reset_i2c();
 
-//		HAL_I2C_Master_Receive_IT(&hi2c1, (0x50 << 1), rx_fmt.d, 24);
 		if(rc == 0)
 		{
 			for(int frame = 1; frame < num_frames; frame++)
-				q[frame] = rx_fmt.v[frame-1]*0.0175f;
+				q[frame] = rx_fmt.v[frame-1]*0.00174532925f;	//deg->rad
 		}
 
 		uint8_t * fmt_ptr_rx_buf = (uint8_t * )uart_rx_buf;	//is the same memory
@@ -111,13 +110,9 @@ int main(void)
 			uart_rx_cplt_flag = 0;
 		}
 
-//		for(int frame = 1; frame < num_frames; frame++)
-//			q[frame] = tau[frame];
-
-
 		if(HAL_GetTick() > uart_tx_ts)
 		{
-			q[0] = align_word.v;
+			q[0] = align_word.v;	//q[0] is undefined. we're using it to align data in the tx packet.
 			HAL_UART_Transmit_IT(&huart1, (uint8_t *)q, num_bytes_frame_buf);
 			uart_tx_ts = HAL_GetTick() + 10;
 		}
