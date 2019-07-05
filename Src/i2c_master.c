@@ -41,27 +41,50 @@ void reset_i2c()
 /*
  * for legacy support, but buggy (data alignment wise)
  */
-static int addr_offset = 0;
-int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t base_addr, uint16_t num_slaves, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size)
+int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t base_addr, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size)
 {
 	int ret = 0;
 	if(i2c_master_state == I2C_RECIEVE_READY)	//first state. only progress if you are allowed by send_i2c_packet
 	{
-		addr_offset++;
-		if(addr_offset >= num_slaves)
-			addr_offset = 0;
-		if(HAL_I2C_Master_Receive_IT(hi2c, (base_addr+addr_offset)<<1, rx_data, rx_size) != HAL_OK)
+		if(HAL_I2C_Master_Receive_IT(hi2c, (base_addr)<<1, rx_data, rx_size) != HAL_OK)
 			ret = -1;
 		i2c_master_state = I2C_RECIEVE_BUSY;
 	}
 	else if(i2c_master_state == I2C_TRANSMIT_READY)
 	{
-		if(HAL_I2C_Master_Transmit_IT(hi2c, (base_addr+addr_offset)<<1, tx_data, tx_size) != HAL_OK)
+		if(HAL_I2C_Master_Transmit_IT(hi2c, (base_addr)<<1, tx_data, tx_size) != HAL_OK)
 			ret = -1;
 		i2c_master_state = I2C_TRANSMIT_BUSY;
 	}
 	return ret;
 }
+
+static int frame_offset = 0;
+HAL_StatusTypeDef retc;
+int handle_i2c_frame_buf(I2C_HandleTypeDef * hi2c, uint16_t base_addr, uint16_t num_frames, float * rx_buf, float * tx_data)
+{
+	int ret = 0;
+	if(i2c_master_state == I2C_RECIEVE_READY)	//first state. only progress if you are allowed by send_i2c_packet
+	{
+		retc = HAL_I2C_Master_Receive_IT(hi2c, (base_addr+frame_offset)<<1, (uint8_t *)(&(rx_buf[frame_offset+1])), 4);
+		if(retc != HAL_OK)
+			ret = -1;
+		i2c_master_state = I2C_RECIEVE_BUSY;
+
+		frame_offset++;
+		if(frame_offset >= num_frames-1)
+			frame_offset = 0;
+	}
+	else if(i2c_master_state == I2C_TRANSMIT_READY)
+	{
+		retc = HAL_I2C_Master_Transmit_IT(hi2c, (base_addr+frame_offset)<<1, (uint8_t *)(&(tx_data[frame_offset+1])), 4);
+		if(retc != HAL_OK)
+			ret = -1;
+		i2c_master_state = I2C_TRANSMIT_BUSY;
+	}
+	return ret;
+}
+
 
 floatsend_t i2c_float_rx_buf;
 floatsend_t i2c_float_tx_buf;

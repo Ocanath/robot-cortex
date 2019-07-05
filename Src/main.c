@@ -51,19 +51,46 @@ int main(void)
 
 	uint32_t led_ts = 0;
 
+	for(int bs = 0; bs < 50; bs++)
+	{
+		HAL_Delay(50);
+		HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
+	}
+
 	int sign[num_frames];
 	sign[0] = 1;
 	sign[1] = 1;
+	uint32_t i2c_ready_ts = 0;
+
+	uint32_t speed_update_ts = 0;
+	float theta_set = 0;
+	const float tau_lim = 50.0f;
 	while (1)
 	{
+
 		float t = ((float)HAL_GetTick())*.001f;
+		float theta_set = 17.3f*(sin_fast(t*2.0f - HALF_PI)+1.0f);
+//		float rpm_des = 100.0f;
+//		if(HAL_GetTick() > speed_update_ts)
+//		{
+//			theta_set += rpm_des*0.000104719755f;
+//			speed_update_ts = HAL_GetTick();
+//		}
 
 //		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 
 //		handle_i2c_motor_chain(&hi2c1, I2C_BASE, num_frames-1, q, tau, sign);
 //		tau[1] = 5.0f;
-		float tau_snd = 5.0f;
-		HAL_I2C_Master_Transmit_IT(&hi2c1, I2C_BASE<<1, (uint8_t *)(&tau_snd), 4);
+		tau[1] = 10.0f*(theta_set - q[1]);
+
+		if(tau[1] > tau_lim)
+			tau[1] = tau_lim;
+		if(tau[1] < -tau_lim)
+			tau[1] = -tau_lim;
+
+		handle_i2c_frame_buf(&hi2c1, 0x20, num_frames, q, tau);
+
+
 
 		uint8_t * fmt_ptr_rx_buf = (uint8_t * )uart_rx_buf;	//is the same memory
 		HAL_UART_Receive_IT(&huart1, fmt_ptr_rx_buf, num_bytes_frame_buf);
@@ -112,7 +139,6 @@ int main(void)
 		}
 	}
 }
-
 
 
 
