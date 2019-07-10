@@ -4,6 +4,7 @@
 
 const int num_frames = 7;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
+typedef enum {MODE_POS_SAFE = 0xAD, MODE_POS_UNSAFE = 0xAB, MODE_TORQUE = 0xAC, MODE_SPEED = 0xAE}api_control_mode;
 
 uint8_t uart_rx_cplt_flag = 0;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -60,18 +61,36 @@ int main(void)
 	hand_format_i2c rx_fmt;
 	uint8_t i2c_tx_buf[25];
 //	HAL_Delay(5000);
+
+	uint32_t switch_ts = HAL_GetTick()+10000;
+	while(HAL_GetTick() < switch_ts)
+	{
+		float t = ((float)HAL_GetTick())*.001f;
+		for(int frame = 1; frame < num_frames; frame++)
+			tx_fmt.v[frame-1] = 20.0f;
+
+		for(int i = 1; i < 25; i++)
+			i2c_tx_buf[i]  = tx_fmt.d[i-1];
+		i2c_tx_buf[0] = MODE_POS_SAFE;	//protected position control mode
+
+		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
+		if(rc == -1)
+			NVIC_SystemReset();
+	}
 	while (1)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
 		{
 //			tx_fmt.v[frame-1] = tau[frame];
-			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
+//			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
+			tx_fmt.v[frame-1] = 100.0f*sin_fast(t);
+//			tx_fmt.v[frame-1] = 15.0;
 		}
 
 		for(int i = 1; i < 25; i++)
 			i2c_tx_buf[i]  = tx_fmt.d[i-1];
-		i2c_tx_buf[0] = 0xAD;	//protected position control mode
+		i2c_tx_buf[0] = 0xAE;	//protected position control mode
 
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 
