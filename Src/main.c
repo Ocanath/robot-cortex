@@ -5,6 +5,12 @@
 const int num_frames = 7;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 typedef enum {MODE_POS_SAFE = 0xAD, MODE_POS_UNSAFE = 0xAB, MODE_TORQUE = 0xAC, MODE_SPEED = 0xAE}api_control_mode;
+enum {RETMODE_POS = 0xAF, RETMODE_PRES = 0xB0};
+
+#define ALIGN_MODE_0 0xFEEDBEEF
+#define ALIGN_MODE_1 0xFEEDBEF0
+#define ALIGN_MODE_2 0xFEEDBEF1
+#define ALIGN_MODE_3 0xFEEDBEF2
 
 uint8_t uart_rx_cplt_flag = 0;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -61,36 +67,57 @@ int main(void)
 	hand_format_i2c rx_fmt;
 	uint8_t i2c_tx_buf[25];
 //	HAL_Delay(5000);
-
-	uint32_t switch_ts = HAL_GetTick()+10000;
-	while(HAL_GetTick() < switch_ts)
+	uint32_t lineup_ts = HAL_GetTick()+1500;
+	api_control_mode control_mode = MODE_POS_SAFE;
+	while(HAL_GetTick()<lineup_ts)
 	{
-		float t = ((float)HAL_GetTick())*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			tx_fmt.v[frame-1] = 20.0f;
-
+			tx_fmt.v[frame-1] = 10.0f;
 		for(int i = 1; i < 25; i++)
 			i2c_tx_buf[i]  = tx_fmt.d[i-1];
-		i2c_tx_buf[0] = MODE_POS_SAFE;	//protected position control mode
+		i2c_tx_buf[0] = control_mode;	//protected position control mode
+		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
+		if(rc == -1)
+			NVIC_SystemReset();
+		if(HAL_GetTick() > led_ts)
+		{
+			HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
+			led_ts = HAL_GetTick()+50;
+		}
+	}
 
+	lineup_ts = HAL_GetTick()+100;
+	while(HAL_GetTick()<lineup_ts)
+	{
+		i2c_tx_buf[0] = RETMODE_POS;	//protected position control mode
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 		if(rc == -1)
 			NVIC_SystemReset();
 	}
+
+	control_mode = MODE_POS_SAFE;
+	uint32_t time_start_ts = HAL_GetTick();
+	float qd[num_frames];
+	for(int frame = 1; frame < num_frames; frame++)
+		qd[frame]=10.0f;
 	while (1)
 	{
-		float t = ((float)HAL_GetTick())*.001f;
+		float t = ((float)(HAL_GetTick()-time_start_ts))*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
 		{
 //			tx_fmt.v[frame-1] = tau[frame];
-//			tx_fmt.v[frame-1] = 60.0f*(.5f*sin_fast(t + (float)(frame-1)*0.52f)+.5f)+10.0f;
-			tx_fmt.v[frame-1] = 100.0f*sin_fast(t);
-//			tx_fmt.v[frame-1] = 15.0;
+
+//			tx_fmt.v[frame-1] =
+//
+//			tx_fmt.v[frame-1] = 40.0f*sin_fast(t*2.0f);
+			qd[frame] = 80.0f*(.5f*sin_fast(t*1.0f + (float)(frame-1)*0.52f)+.5f)+10.0f;
+//			tx_fmt.v[frame-1] = 5.0f*(qd[frame]-q[frame]);
+			tx_fmt.v[frame-1] = qd[frame];
 		}
 
 		for(int i = 1; i < 25; i++)
 			i2c_tx_buf[i]  = tx_fmt.d[i-1];
-		i2c_tx_buf[0] = 0xAE;	//protected position control mode
+		i2c_tx_buf[0] = control_mode;	//protected position control mode
 
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 
@@ -100,7 +127,7 @@ int main(void)
 		if(rc == 0)
 		{
 			for(int frame = 1; frame < num_frames; frame++)
-				q[frame] = rx_fmt.v[frame-1]*0.00174532925f;	//deg->rad
+				q[frame] = rx_fmt.v[frame-1];	//deg->rad
 		}
 
 		uint8_t * fmt_ptr_rx_buf = (uint8_t * )uart_rx_buf;	//is the same memory
@@ -117,10 +144,13 @@ int main(void)
 					int ld_idx = (bidx + i) % num_bytes_frame_buf;
 					fmt.d[i] = fmt_ptr_rx_buf[ld_idx];
 				}
-				if(fmt.v == 0xFEEDBEEF)
+				uint32_t align_mode_word = (uint32_t)fmt.v;
+				if(align_mode_word >= ALIGN_MODE_0 && align_mode_word <= ALIGN_MODE_3)
+				{
 					start_idx = bidx;
+					control_mode = (uint8_t)(align_mode_word-ALIGN_MODE_0)+0xAB;
+				}
 			}
-
 			uint8_t * tau_ref = (uint8_t *)tau;
 			for(bidx = 0; bidx < num_bytes_frame_buf; bidx++)
 			{
@@ -133,7 +163,7 @@ int main(void)
 		{
 			q[0] = align_word.v;	//q[0] is undefined. we're using it to align data in the tx packet.
 			HAL_UART_Transmit_IT(&huart1, (uint8_t *)q, num_bytes_frame_buf);
-			uart_tx_ts = HAL_GetTick() + 10;
+			uart_tx_ts = HAL_GetTick() + 20;
 		}
 
 
