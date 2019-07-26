@@ -77,8 +77,8 @@ int main(void)
 			i2c_tx_buf[i]  = tx_fmt.d[i-1];
 		i2c_tx_buf[0] = control_mode;	//protected position control mode
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
-		if(rc == -1)
-			NVIC_SystemReset();
+//		if(rc == -1)
+//			NVIC_SystemReset();
 		if(HAL_GetTick() > led_ts)
 		{
 			HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
@@ -89,10 +89,10 @@ int main(void)
 	lineup_ts = HAL_GetTick()+100;
 	while(HAL_GetTick()<lineup_ts)
 	{
-		i2c_tx_buf[0] = RETMODE_POS;	//protected position control mode
+		i2c_tx_buf[0] = RETMODE_PRES;	//protected position control mode
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
-		if(rc == -1)
-			NVIC_SystemReset();
+//		if(rc == -1)
+//			NVIC_SystemReset();
 	}
 
 	control_mode = MODE_POS_SAFE;
@@ -104,14 +104,12 @@ int main(void)
 	{
 		float t = ((float)(HAL_GetTick()-time_start_ts))*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-		{
-//			tx_fmt.v[frame-1] = tau[frame];
+			qd[frame]=70.0f*(.5f*sin_fast(t)+.5f)+10.0f;
+		qd[5] = 40.0f*(.5f*sin_fast(t)+.5f)+10.0f;
+		qd[6] = 35.0f*(.5f*sin_fast(t+HALF_PI)+.5f)+10.0f;
 
-//			tx_fmt.v[frame-1] =
-//
-//			tx_fmt.v[frame-1] = 40.0f*sin_fast(t*2.0f);
-			qd[frame] = 80.0f*(.5f*sin_fast(t*1.0f + (float)(frame-1)*0.52f)+.5f)+10.0f;
-//			tx_fmt.v[frame-1] = 5.0f*(qd[frame]-q[frame]);
+		for(int frame = 1; frame < num_frames; frame++)
+		{
 			tx_fmt.v[frame-1] = qd[frame];
 		}
 
@@ -121,14 +119,20 @@ int main(void)
 
 		int rc = handle_i2c_master(&hi2c1, (0x50 << 1), rx_fmt.d, 24, i2c_tx_buf, 25);
 
-		if(rc == -1)
-			NVIC_SystemReset();
+//		if(rc == -1)
+//			NVIC_SystemReset();
 
 		if(rc == 0)
 		{
 			for(int frame = 1; frame < num_frames; frame++)
 				q[frame] = rx_fmt.v[frame-1];	//deg->rad
 		}
+		else
+		{
+			for(int frame = 1; frame < num_frames; frame++)
+				q[frame] = 100.0f*(0.5f*sin_fast(t*30.0f)+.5f);
+		}
+
 
 		uint8_t * fmt_ptr_rx_buf = (uint8_t * )uart_rx_buf;	//is the same memory
 		HAL_UART_Receive_IT(&huart1, fmt_ptr_rx_buf, num_bytes_frame_buf);

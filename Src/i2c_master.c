@@ -40,6 +40,7 @@ void reset_i2c()
 /*
  * for legacy support, but buggy (data alignment wise)
  */
+static uint32_t not_busy_ts = 0;
 int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size )
 {
 	int ret = 0;
@@ -55,6 +56,16 @@ int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t 
 			ret = -1;
 		i2c_master_state = I2C_TRANSMIT_BUSY;
 	}
+
+	if(hi2c->State != HAL_I2C_STATE_BUSY_TX && hi2c->State != HAL_I2C_STATE_BUSY_RX)
+	{
+		not_busy_ts = HAL_GetTick();
+	}
+	if(HAL_GetTick() - not_busy_ts > 10)
+	{
+		ret = -1;
+	}
+
 	return ret;
 }
 
