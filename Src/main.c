@@ -64,7 +64,8 @@ int main(void)
 
 
 	uint32_t enhp_ts = 0;
-	uint8_t enhp_pin = 0;
+	enum {POWER_ON, POWER_OFF, OPEN, CLOSE, OPEN_2, CLOSE_2};
+	uint8_t state = POWER_ON;
 	while(1)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
@@ -76,13 +77,61 @@ int main(void)
 
 		if(HAL_GetTick() > enhp_ts)
 		{
-			enhp_pin = (~enhp_pin) & 1;
-			HAL_GPIO_WritePin(EN_HP_GPIO_Port, EN_HP_Pin, enhp_pin);
-			if(enhp_pin == 1)
-				enhp_ts = HAL_GetTick()+15000;
-			else
+			switch(state)
+			{
+			case POWER_ON:
+			{
+				HAL_GPIO_WritePin(NRF_CE_GPIO_Port, NRF_CE_Pin, 1);
+				HAL_GPIO_WritePin(EN_HP_GPIO_Port, EN_HP_Pin, 1);
+				enhp_ts = HAL_GetTick()+10000;
+				state = CLOSE;
+				break;
+			}
+			case CLOSE:
+			{
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, 200};
+				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
+				enhp_ts = HAL_GetTick()+3000;
+				state = OPEN;
+				break;
+			}
+			case OPEN:
+			{
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, 200};
+				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
+				enhp_ts = HAL_GetTick()+3000;
+				state = CLOSE_2;
+				break;
+			}
+			case CLOSE_2:
+			{
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, 200};
+				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
+				enhp_ts = HAL_GetTick()+3000;
+				state = OPEN_2;
+				break;
+			}
+			case OPEN_2:
+			{
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, 200};
+				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
+				enhp_ts = HAL_GetTick()+3000;
+				state = POWER_OFF;
+				break;
+			}
+			case POWER_OFF:
+			{
+				HAL_GPIO_WritePin(NRF_CE_GPIO_Port, NRF_CE_Pin, 0);
+				HAL_GPIO_WritePin(EN_HP_GPIO_Port, EN_HP_Pin, 0);
 				enhp_ts = HAL_GetTick()+1000;
+				state = POWER_ON;
+				break;
+			}
+			default:
+				break;
+			};
 		}
+
 	}
 
 	float uart_rx_buf[num_frames];
