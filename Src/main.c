@@ -66,6 +66,8 @@ int main(void)
 	uint32_t enhp_ts = 0;
 	enum {POWER_ON, POWER_OFF, OPEN, CLOSE, OPEN_2, CLOSE_2};
 	uint8_t state = POWER_ON;
+	uint32_t grip_time = 2000;
+	uint8_t grip_speed = 230;
 	while(1)
 	{
 		float t = ((float)HAL_GetTick())*.001f;
@@ -89,33 +91,33 @@ int main(void)
 			}
 			case CLOSE:
 			{
-				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, 200};
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, grip_speed};
 				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
-				enhp_ts = HAL_GetTick()+3000;
+				enhp_ts = HAL_GetTick()+grip_time;
 				state = OPEN;
 				break;
 			}
 			case OPEN:
 			{
-				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, 200};
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, grip_speed};
 				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
-				enhp_ts = HAL_GetTick()+3000;
+				enhp_ts = HAL_GetTick()+grip_time;
 				state = CLOSE_2;
 				break;
 			}
 			case CLOSE_2:
 			{
-				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, 200};
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, grip_speed};
 				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
-				enhp_ts = HAL_GetTick()+3000;
+				enhp_ts = HAL_GetTick()+grip_time;
 				state = OPEN_2;
 				break;
 			}
 			case OPEN_2:
 			{
-				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, 200};
+				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, grip_speed};
 				HAL_I2C_Master_Transmit_IT(&hi2c1, 0x50<<1, i2c_tx_buf, 3);
-				enhp_ts = HAL_GetTick()+3000;
+				enhp_ts = HAL_GetTick()+grip_time;
 				state = POWER_OFF;
 				break;
 			}
