@@ -32,6 +32,7 @@ uint8_t rx_ready ;
 uint8_t tx_ready;
 extern uint32_t i2c_ok_ts;
 extern uint16_t cur_address;
+extern uint32_t not_busy_ts;
 
 void I2C1_Reset();
 void i2c_packet_start();

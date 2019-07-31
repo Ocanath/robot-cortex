@@ -32,6 +32,9 @@ void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 
 void I2C1_Reset()
 {
+	I2C1->CR1 |= I2C_CR1_START;
+	I2C1->CR1 |= I2C_CR1_STOP;
+
 	//Maybe send a stop condition first?
 	I2C1->CR1 = I2C1->CR1 | (0x8000);	//set the swrst bit to reset the bus
 	while( (I2C1->CR1 & 0x8000)== 0);	//spin until the bit be high
@@ -45,7 +48,7 @@ void I2C1_Reset()
 /*
  * for legacy support, but buggy (data alignment wise)
  */
-static uint32_t not_busy_ts = 0;
+uint32_t not_busy_ts = 0;
 int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size )
 {
 	int ret = 0;
@@ -68,7 +71,7 @@ int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t 
 		i2c_master_state = I2C_TRANSMIT_BUSY;
 	}
 
-	if(HAL_GetTick() - not_busy_ts > 50)
+	if(HAL_GetTick() - not_busy_ts > 10)
 		ret = -1;
 
 	return ret;
