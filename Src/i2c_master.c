@@ -30,8 +30,9 @@ void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 }
 
 
-void reset_i2c()
+void I2C1_Reset()
 {
+	//Maybe send a stop condition first?
 	I2C1->CR1 = I2C1->CR1 | (0x8000);	//set the swrst bit to reset the bus
 	while( (I2C1->CR1 & 0x8000)== 0);	//spin until the bit be high
 

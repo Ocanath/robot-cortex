@@ -33,7 +33,7 @@ uint8_t tx_ready;
 extern uint32_t i2c_ok_ts;
 extern uint16_t cur_address;
 
-void reset_i2c();
+void I2C1_Reset();
 void i2c_packet_start();
 uint8_t i2c_packet_sent();
 int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t * rx_data, int rx_size, uint8_t * tx_data, int tx_size );

@@ -95,7 +95,7 @@ int main(void)
 			{
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, grip_speed};
 				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
-					reset_i2c();
+					I2C1_Reset();
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = OPEN;
 				break;
@@ -104,7 +104,7 @@ int main(void)
 			{
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, grip_speed};
 				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
-					reset_i2c();
+					I2C1_Reset();
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = CLOSE_2;
 				break;
@@ -114,7 +114,7 @@ int main(void)
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, grip_speed};
 
 				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
-					reset_i2c();
+					I2C1_Reset();
 
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = OPEN_2;
@@ -125,7 +125,7 @@ int main(void)
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, grip_speed};
 
 				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
-					reset_i2c();
+					I2C1_Reset();
 
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = POWER_OFF;
