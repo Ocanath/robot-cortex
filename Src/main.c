@@ -68,7 +68,7 @@ int main(void)
 	uint32_t enhp_ts = 0;
 	enum {POWER_ON, POWER_OFF, OPEN, CLOSE, OPEN_2, CLOSE_2};
 	uint8_t state = POWER_ON;
-	uint32_t grip_time = 2000;
+	uint32_t grip_time = 1000;
 	uint8_t grip_speed = 230;
 	while(1)
 	{
@@ -87,14 +87,15 @@ int main(void)
 			{
 				HAL_GPIO_WritePin(NRF_CE_GPIO_Port, NRF_CE_Pin, 1);
 				HAL_GPIO_WritePin(EN_HP_GPIO_Port, EN_HP_Pin, 1);
-				enhp_ts = HAL_GetTick()+15000;
+				enhp_ts = HAL_GetTick()+1000;
 				state = CLOSE;
 				break;
 			}
 			case CLOSE:
 			{
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, grip_speed};
-				HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10);
+				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
+					reset_i2c();
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = OPEN;
 				break;
@@ -102,7 +103,8 @@ int main(void)
 			case OPEN:
 			{
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, grip_speed};
-				HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10);
+				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
+					reset_i2c();
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = CLOSE_2;
 				break;
@@ -110,7 +112,10 @@ int main(void)
 			case CLOSE_2:
 			{
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x01, grip_speed};
-				HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10);
+
+				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
+					reset_i2c();
+
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = OPEN_2;
 				break;
@@ -118,7 +123,10 @@ int main(void)
 			case OPEN_2:
 			{
 				uint8_t i2c_tx_buf[3] = {0x1D, 0x00, grip_speed};
-				HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10);		//NOTE: this glitches out if the slave lines go low. go fucking figure right
+
+				while(HAL_I2C_Master_Transmit(&hi2c1, 0x50<<1, i2c_tx_buf, 3, 10) != HAL_OK)
+					reset_i2c();
+
 				enhp_ts = HAL_GetTick()+grip_time;
 				state = POWER_OFF;
 				break;
@@ -127,9 +135,9 @@ int main(void)
 			{
 				HAL_GPIO_WritePin(NRF_CE_GPIO_Port, NRF_CE_Pin, 0);
 				HAL_GPIO_WritePin(EN_HP_GPIO_Port, EN_HP_Pin, 0);
-				HAL_Delay(500);		//TODO:
-				NVIC_SystemReset();	//make it so that this and the above line are not necessary anymore.
-				enhp_ts = HAL_GetTick()+1000;
+//				HAL_Delay(500);		//TODO:
+//				NVIC_SystemReset();	//make it so that this and the above line are not necessary anymore.
+				enhp_ts = HAL_GetTick()+500;
 				state = POWER_ON;
 				break;
 			}
