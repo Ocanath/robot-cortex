@@ -63,7 +63,8 @@ int main(void)
 
 
 	start_pwm();
-	TIMER_UPDATE_DUTY(500,900,400);
+	TIMER_UPDATE_DUTY(0,1000,0);	//B,G,R
+	HAL_Delay(1000);
 
 	float uart_rx_buf[num_frames];
 	int start_idx = 0;
@@ -76,20 +77,23 @@ int main(void)
 	uint32_t uart_tx_ts = 0;
 
 
-	floatsend_t qd[num_frames];
+	float qd[num_frames];
 
 	floatsend_t q[num_frames];
-	float tau[num_frames];
+	floatsend_t tau[num_frames];
 
 	uint32_t led_ts = 0;
 	while (1)
 	{
 		float t = ((float)(HAL_GetTick()))*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			qd[frame].v = 70.0f*(.5f*sin_fast(t)+.5f)+10.0f;
+			qd[frame] = 10.0f*(.5f*sin_fast(t)+.5f)+10.0f;
+
+		int frame = 1;
+		tau[frame].v = 10.0f*(qd[frame]-q[frame].v);
 
 		/***********************************************************************************************/
-		int rc = handle_i2c_master(&hi2c1, (0x20 << 1), q[1].d, 4, qd[1].d, 4);	//This works!!!
+		int rc = handle_i2c_master(&hi2c1, (0x20 << 1), q[1].d, 4, tau[1].d, 4);	//This works!!!
 		if(rc == -1 || hi2c1.ErrorCode != 0)
 		{
 			HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery
