@@ -87,10 +87,10 @@ int main(void)
 	{
 		float t = ((float)(HAL_GetTick()))*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			qd[frame] = 10.0f*(.5f*sin_fast(t)+.5f)+10.0f;
+			qd[frame] = 20.0f*(.5f*sin_fast(t)+.5f)+10.0f;
 
 		int frame = 1;
-		tau[frame].v = 10.0f*(qd[frame]-q[frame].v);
+		tau[frame].v = 20.0f*(qd[frame]-q[frame].v);
 
 		/***********************************************************************************************/
 		int rc = handle_i2c_master(&hi2c1, (0x20 << 1), q[1].d, 4, tau[1].d, 4);	//This works!!!
