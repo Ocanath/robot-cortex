@@ -54,7 +54,7 @@ int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t 
 	int ret = 0;
 	if(i2c_master_state == I2C_RECIEVE_READY)	//first state. only progress if you are allowed by send_i2c_packet
 	{
-		if(HAL_I2C_Master_Receive_IT(hi2c, slave_address, rx_data, rx_size) != HAL_OK)
+		if(HAL_I2C_Master_Seq_Receive_IT(hi2c, slave_address, rx_data, rx_size, I2C_LAST_FRAME) != HAL_OK)
 			ret = -1;
 		else
 			not_busy_ts = HAL_GetTick();
@@ -63,7 +63,7 @@ int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t 
 	}
 	else if(i2c_master_state == I2C_TRANSMIT_READY)
 	{
-		if(HAL_I2C_Master_Transmit_IT(hi2c, slave_address, tx_data, tx_size) != HAL_OK)
+		if(HAL_I2C_Master_Seq_Transmit_IT(hi2c, slave_address, tx_data, tx_size, I2C_FIRST_FRAME) != HAL_OK)
 			ret = -1;
 		else
 			not_busy_ts = HAL_GetTick();
