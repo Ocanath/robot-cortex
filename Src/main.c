@@ -57,10 +57,7 @@ int main(void)
 	MX_I2C1_Init();
 	MX_SPI1_Init();
 	MX_TIM1_Init();
-	MX_USART1_UART_Init();
-
-
-
+	MX_USART2_UART_Init();
 
 	start_pwm();
 	TIMER_UPDATE_DUTY(0,1000,0);	//B,G,R
@@ -83,17 +80,48 @@ int main(void)
 	floatsend_t tau[num_frames];
 
 	uint32_t led_ts = 0;
+	uint32_t uart_ts = 0;
 	while (1)
 	{
+
+
 		float t = ((float)(HAL_GetTick()))*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			qd[frame] = 20.0f*(.5f*sin_fast(t)+.5f)+10.0f;
+			qd[frame] = 10.0f*(sin_fast(t*4.0f));
+
 
 		int frame = 1;
-		tau[frame].v = 20.0f*(qd[frame]-q[frame].v);
+//		tau[frame].v = 20.0f*(qd[frame]-q[frame].v);
+		tau[frame].v = qd[frame];
 
 		/***********************************************************************************************/
+//		if(tau[1].v >= 100.0f)
+//		{
+//			while(1)
+//			{
+//				TIMER_UPDATE_DUTY(0,0,1000);
+//			}
+//		}
+		if(HAL_GetTick()>uart_ts)
+		{
+			HAL_UART_Transmit(&huart2, tau[1].d, 4, 10);
+			HAL_UART_Transmit(&huart2, q[1].d, 4, 10);
+			uart_ts = HAL_GetTick()+15;
+		}
+
 		int rc = handle_i2c_master(&hi2c1, (0x20 << 1), q[1].d, 4, tau[1].d, 4);	//This works!!!
+
+
+		//		int rc = 0;
+		//		uint32_t i2c_tout_ts;
+		//		HAL_I2C_Master_Sequential_Transmit_IT(&hi2c1, (0x20 << 1), tau[1].d, 4, I2C_FIRST_AND_LAST_FRAME);
+		//		i2c_tout_ts = HAL_GetTick()+10;
+		//		while(hi2c1.State != HAL_I2C_STATE_READY && HAL_GetTick() < i2c_tout_ts);
+		//		HAL_I2C_Master_Sequential_Receive_IT(&hi2c1, (0x20 << 1), q[1].d, 4, I2C_LAST_FRAME);
+		//		i2c_tout_ts = HAL_GetTick()+10;
+		//		while(hi2c1.State != HAL_I2C_STATE_READY && HAL_GetTick() < i2c_tout_ts);
+
+
 		if(rc == -1 || hi2c1.ErrorCode != 0)
 		{
 			HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery
@@ -114,8 +142,8 @@ int main(void)
 
 		if(HAL_GetTick() > led_ts)
 		{
-//			HAL_GPIO_TogglePin(STAT_GPIO_Port, STAT_Pin);
-//			HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
+			//			HAL_GPIO_TogglePin(STAT_GPIO_Port, STAT_Pin);
+			//			HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
 			led_ts = HAL_GetTick()+250;
 		}
 	}
@@ -135,6 +163,3 @@ void start_pwm()
 	HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
 	//	TIM1->CCER = (TIM1->CCER & DIS_ALL) | ENABLE_ALL;
 }
-
-
-
