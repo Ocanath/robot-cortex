@@ -128,11 +128,10 @@ int main(void)
 
 		float t = ((float)(HAL_GetTick()))*.001f;
 		for(int frame = 1; frame < num_frames; frame++)
-			qd[frame] = 10.0f*(sin_fast(t*4.0f));
+			qd[frame] = 3.0f*(sin_fast(t*4.0f));
 
 		int frame = 1;
-		qd[frame] = 10.0f;
-		tau[frame].v = 20.0f*(qd[frame]-q[frame]);
+		tau[frame].v = 10.0f*(qd[frame]-q[frame]);
 		//tau[frame].v = qd[frame];
 
 		if(HAL_GetTick()>uart_ts)
