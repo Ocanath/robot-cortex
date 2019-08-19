@@ -76,60 +76,71 @@ int main(void)
 
 	float qd[num_frames];
 
-	floatsend_t q[num_frames];
+
+	//tau -> input, q_i2c and i2c_rx_previous are state, q -> output
 	floatsend_t tau[num_frames];
+	floatsend_t q_i2c[num_frames];	//receptions are weird. since the interrupt could complete itself ANYWHERE, we need to debuffer this in an interrupt handler or flag handler
+	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
+	float q[num_frames];	//this is used for pcontrol
+
 
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
+
+	uint32_t i2c_addr_offset = 0;
+	uint32_t i2c_frame_offset = i2c_addr_offset + 1;
+
 	while (1)
 	{
-
-
-		float t = ((float)(HAL_GetTick()))*.001f;
-		for(int frame = 1; frame < num_frames; frame++)
-			qd[frame] = 10.0f*(sin_fast(t*4.0f));
-
-
-		int frame = 1;
-//		tau[frame].v = 20.0f*(qd[frame]-q[frame].v);
-		tau[frame].v = qd[frame];
-
-		/***********************************************************************************************/
-//		if(tau[1].v >= 100.0f)
-//		{
-//			while(1)
-//			{
-//				TIMER_UPDATE_DUTY(0,0,1000);
-//			}
-//		}
-		if(HAL_GetTick()>uart_ts)
-		{
-			HAL_UART_Transmit(&huart2, tau[1].d, 4, 10);
-			HAL_UART_Transmit(&huart2, q[1].d, 4, 10);
-			uart_ts = HAL_GetTick()+15;
-		}
-
-		int rc = handle_i2c_master(&hi2c1, (0x20 << 1), q[1].d, 4, tau[1].d, 4);	//This works!!!
-
-
-		//		int rc = 0;
-		//		uint32_t i2c_tout_ts;
-		//		HAL_I2C_Master_Sequential_Transmit_IT(&hi2c1, (0x20 << 1), tau[1].d, 4, I2C_FIRST_AND_LAST_FRAME);
-		//		i2c_tout_ts = HAL_GetTick()+10;
-		//		while(hi2c1.State != HAL_I2C_STATE_READY && HAL_GetTick() < i2c_tout_ts);
-		//		HAL_I2C_Master_Sequential_Receive_IT(&hi2c1, (0x20 << 1), q[1].d, 4, I2C_LAST_FRAME);
-		//		i2c_tout_ts = HAL_GetTick()+10;
-		//		while(hi2c1.State != HAL_I2C_STATE_READY && HAL_GetTick() < i2c_tout_ts);
-
-
+		int rc = handle_i2c_master(&hi2c1, ((0x20+i2c_addr_offset) << 1), q_i2c[i2c_frame_offset].d, 4, tau[i2c_frame_offset].d, 4);	//This works!!!
 		if(rc == -1 || hi2c1.ErrorCode != 0)
 		{
 			HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery
 			while(HAL_NVIC_GetPendingIRQ(I2C1_EV_IRQn)==1);
 			I2C1_Reset();
 			i2c_master_state = I2C_TRANSMIT_READY;
+
+			i2c_tx_cplt = 0;
+			i2c_rx_cplt = 0;
 		}
-		/**********************************************************************************************/
+		if(i2c_tx_cplt == 1 && i2c_rx_cplt == 1)
+		{
+			uint32_t * fptr_chk = (uint32_t*)(&(q_i2c[i2c_frame_offset].v));	//mask pointer of the most recently read q value
+			if( (*fptr_chk & 0x7f800000) == 0x7f800000)		//if the most recent q value is NaN
+				q[i2c_frame_offset] = i2c_rx_previous[i2c_frame_offset];
+			else	//if it is a number,
+			{
+				q[i2c_frame_offset] = q_i2c[i2c_frame_offset].v;	//load it into q so we can use it!
+				i2c_rx_previous[i2c_frame_offset] = q[i2c_frame_offset];//only do this here... only works here anyway...
+			}
+
+			i2c_addr_offset++;
+			if(i2c_addr_offset >= num_frames-1)
+				i2c_addr_offset = 0;
+			i2c_frame_offset = i2c_addr_offset + 1;
+
+			i2c_tx_cplt = 0;
+			i2c_rx_cplt = 0;
+		}
+
+
+		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
+
+		float t = ((float)(HAL_GetTick()))*.001f;
+		for(int frame = 1; frame < num_frames; frame++)
+			qd[frame] = 10.0f*(sin_fast(t*4.0f));
+
+		int frame = 1;
+		qd[frame] = 10.0f;
+		tau[frame].v = 20.0f*(qd[frame]-q[frame]);
+		//tau[frame].v = qd[frame];
+
+		if(HAL_GetTick()>uart_ts)
+		{
+			HAL_UART_Transmit(&huart2, tau[1].d, 4, 10);
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
+			uart_ts = HAL_GetTick()+15;
+		}
 
 		if(rc == 0)
 		{
@@ -146,6 +157,7 @@ int main(void)
 			//			HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
 			led_ts = HAL_GetTick()+250;
 		}
+		/**********************************End Legit q*************************************************************/
 	}
 }
 

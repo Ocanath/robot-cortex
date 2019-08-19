@@ -9,6 +9,9 @@
 i2c_state i2c_master_state = I2C_TRANSMIT_READY;
 uint8_t send_i2c_packet = 0;
 
+uint8_t i2c_tx_cplt = 0;
+uint8_t i2c_rx_cplt = 0;
+
 void i2c_packet_start()
 {
 	send_i2c_packet = 1;
@@ -22,11 +25,12 @@ uint8_t i2c_packet_sent()
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
 	i2c_master_state = I2C_RECIEVE_READY;
-	send_i2c_packet = 0;
+	i2c_tx_cplt = 1;
 }
 void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
 	i2c_master_state = I2C_TRANSMIT_READY;
+	i2c_rx_cplt = 1;
 }
 
 

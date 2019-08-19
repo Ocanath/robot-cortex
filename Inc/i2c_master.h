@@ -20,6 +20,9 @@ typedef enum {I2C_RECIEVE_READY = 0,I2C_RECIEVE_BUSY = 1,I2C_TRANSMIT_READY = 2,
 #define RX_SIZE 4
 #define TX_SIZE 4
 
+extern uint8_t i2c_tx_cplt;
+extern uint8_t i2c_rx_cplt;
+
 //#define I2C_BASE 0x50
 //#define I2C_BASE 0x40
 
