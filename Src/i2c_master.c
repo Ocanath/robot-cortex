@@ -36,15 +36,17 @@ void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 
 void I2C1_Reset()
 {
-	I2C1->CR1 |= I2C_CR1_START;
-	I2C1->CR1 |= I2C_CR1_STOP;
-
+	//I2C1->CR1 |= I2C_CR1_START;
+	//I2C1->CR1 |= I2C_CR1_STOP;
+	I2C1->CR2 |= I2C_CR2_START;
+	I2C1->CR2 |= I2C_CR2_STOP;
 	//Maybe send a stop condition first?
-	I2C1->CR1 = I2C1->CR1 | (0x8000);	//set the swrst bit to reset the bus
-	while( (I2C1->CR1 & 0x8000)== 0);	//spin until the bit be high
 
-	I2C1->CR1 = I2C1->CR1 & (~0x8000);	//zero out that bit to bring the peripheral back out of reset.
-	while( (I2C1->CR1 & 0x8000) != 0);	//spin until the bit goes low
+	I2C1->CR1 &= ~(I2C_CR1_PE);	//zero out that bit to bring the peripheral back out of reset.
+	while( (I2C1->CR1 & I2C_CR1_PE) != 0);	//spin until the bit goes low
+
+	I2C1->CR1 |= I2C_CR1_PE;	//set the peripheral enable bit to re-enable i2c
+	while( (I2C1->CR1 & I2C_CR1_PE)== 0);	//spin until the bit be high
 
 	hi2c1.State = HAL_I2C_STATE_RESET;
 	MX_I2C1_Init();

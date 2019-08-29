@@ -2,7 +2,7 @@
 #include "i2c_master.h"
 #include "sin-math.h"
 
-const int num_frames = 3;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
+const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 typedef enum {MODE_POS_SAFE = 0xAD, MODE_POS_UNSAFE = 0xAB, MODE_TORQUE = 0xAC, MODE_SPEED = 0xAE}api_control_mode;
 enum {RETMODE_POS = 0xAF, RETMODE_PRES = 0xB0};
@@ -92,7 +92,7 @@ int main(void)
 
 	while (1)
 	{
-		int rc = handle_i2c_master(&hi2c1, ((0x23+i2c_addr_offset) << 1), q_i2c[i2c_frame_offset].d, 4, tau[i2c_frame_offset].d, 4);	//This works!!!
+		int rc = handle_i2c_master(&hi2c1, ((0x20+i2c_addr_offset) << 1), q_i2c[i2c_frame_offset].d, 4, tau[i2c_frame_offset].d, 4);	//This works!!!
 		if(rc == -1 || hi2c1.ErrorCode != 0)
 		{
 			HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery

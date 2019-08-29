@@ -14,6 +14,6 @@
     <name>robot-cortex-code</name>
     <dbgIF>SWD</dbgIF>
     <dbgDEV>ST-Link</dbgDEV>
-    <mcuId>stm32f401rbtx</mcuId>
+    <mcuId>stm32f730r8tx</mcuId>
   </board>
 </targetDefinitions>
