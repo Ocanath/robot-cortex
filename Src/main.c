@@ -123,6 +123,9 @@ int main(void)
 
 	nrf_init(&nrf, &config);		//TODO: figure out why nrf init spin locks (probably bad cube init)
 
+	uint8_t comm_down_led_toggle_flag = 0;
+
+
 	float qd[num_frames];
 
 
@@ -203,12 +206,18 @@ int main(void)
 		}
 
 
-		if(HAL_GetTick()-rx_ts > 500 && HAL_GetTick() > comm_down_ts)
+		if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts)
 		{
 			nrf_init(&nrf, &config);
-			TIMER_UPDATE_DUTY(900,0,100);
-			comm_down_ts = HAL_GetTick()+500;
+			TIMER_UPDATE_DUTY(0,0,1000);
+			comm_down_ts = HAL_GetTick()+1000;
 		}
+		else if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts - 900)
+		{
+			TIMER_UPDATE_DUTY(0,0,0);
+		}
+
+
 
 		if(HAL_GetTick() > led_ts)
 		{
