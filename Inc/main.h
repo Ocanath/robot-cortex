@@ -74,6 +74,7 @@ void Error_Handler(void);
 #define NRF_SS_GPIO_Port GPIOB
 #define NRF_INT_Pin GPIO_PIN_7
 #define NRF_INT_GPIO_Port GPIOC
+#define NRF_INT_EXTI_IRQn EXTI9_5_IRQn
 #define MPU_INT_Pin GPIO_PIN_11
 #define MPU_INT_GPIO_Port GPIOA
 #define MPU_INT_EXTI_IRQn EXTI15_10_IRQn
