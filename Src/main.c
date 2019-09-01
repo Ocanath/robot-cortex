@@ -100,7 +100,7 @@ int main(void)
 	int num_bytes_frame_buf = sizeof(float)*num_frames;
 	uint32_t uart_tx_ts = 0;
 
-	config.data_rate = NRF_DATA_RATE_250KBPS;		//hoping lower baud rate will be more reliable
+	config.data_rate = NRF_DATA_RATE_1MBPS;		//hoping lower baud rate will be more reliable
 	config.tx_power = NRF_TX_PWR_0dBm;
 	config.crc_width = NRF_ADDR_WIDTH_5;
 	config.payload_length   = NUM_BYTES_PAYLOAD;    // payload bytes. maximum is 32 bytes.
@@ -142,6 +142,7 @@ int main(void)
 	uint16_t i2c_base_addr = 0x20;
 	uint16_t i2c_addr_offset = 0;
 	uint32_t i2c_frame_offset = i2c_addr_offset + 1;
+
 
 	while (1)
 	{
