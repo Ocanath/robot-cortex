@@ -29,6 +29,12 @@ extern uint8_t i2c_rx_cplt;
 //extern uint8_t i2c_float_rx_buf[RX_SIZE];
 //extern uint8_t i2c_float_tx_buf[TX_SIZE];
 
+typedef union
+{
+	float v;
+	uint8_t d[4];
+}floatsend_t;
+
 extern i2c_state i2c_master_state;
 uint8_t send_i2c_packet;
 uint8_t rx_ready ;
@@ -44,5 +50,9 @@ int handle_i2c_master(I2C_HandleTypeDef * hi2c, uint16_t slave_address, uint8_t 
 
 void handle_i2c(I2C_HandleTypeDef * hi2c, uint16_t base_address, uint8_t * i2c_float_rx_buf, uint8_t * i2c_float_tx_buf, int num_bytes);
 uint32_t i2c_busy_time();
+
+void i2c_robot_master(uint16_t i2c_base_addr, int num_frames,
+		floatsend_t * q_i2c,	float * i2c_rx_previous,
+		floatsend_t * tau, float * q);
 
 #endif /* I2C_MASTER_H_ */

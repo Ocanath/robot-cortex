@@ -41,11 +41,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	uart_rx_cplt_flag = 1;
 }
 
-typedef union
-{
-	float v;
-	uint8_t d[4];
-}floatsend_t;
 
 typedef union
 {
@@ -140,43 +135,14 @@ int main(void)
 	uint32_t uart_ts = 0;
 
 	uint16_t i2c_base_addr = 0x20;
-	uint16_t i2c_addr_offset = 0;
-	uint32_t i2c_frame_offset = i2c_addr_offset + 1;
 
 
 	while (1)
 	{
 		/*****************This block of code manages I2C robust communications to a chain of i2c devices.****************************************/
-		int rc = handle_i2c_master(&hi2c1, ((i2c_base_addr+i2c_addr_offset) << 1), q_i2c[i2c_frame_offset].d, 4, tau[i2c_frame_offset].d, 4);	//This works!!!
-		if(rc == -1 || hi2c1.ErrorCode != 0)
-		{
-			HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery
-			while(HAL_NVIC_GetPendingIRQ(I2C1_EV_IRQn)==1);
-			I2C1_Reset();
-			i2c_master_state = I2C_TRANSMIT_READY;
-
-			i2c_tx_cplt = 0;
-			i2c_rx_cplt = 0;
-		}
-		if(i2c_tx_cplt == 1 && i2c_rx_cplt == 1)
-		{
-			uint32_t * fptr_chk = (uint32_t*)(&(q_i2c[i2c_frame_offset].v));	//mask pointer of the most recently read q value
-			if( (*fptr_chk & 0x7f800000) == 0x7f800000)		//if the most recent q value is NaN
-				q[i2c_frame_offset] = i2c_rx_previous[i2c_frame_offset];
-			else	//if it is a number,
-			{
-				q[i2c_frame_offset] = q_i2c[i2c_frame_offset].v;	//load it into q so we can use it!
-				i2c_rx_previous[i2c_frame_offset] = q[i2c_frame_offset];//only do this here... only works here anyway...
-			}
-
-			i2c_addr_offset++;
-			if(i2c_addr_offset >= num_frames-1)
-				i2c_addr_offset = 0;
-			i2c_frame_offset = i2c_addr_offset + 1;
-
-			i2c_tx_cplt = 0;
-			i2c_rx_cplt = 0;
-		}
+		i2c_robot_master(i2c_base_addr, num_frames,
+				q_i2c,	i2c_rx_previous,
+				tau, q);
 		/***********************************************************End***************************************************************************/
 
 		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
