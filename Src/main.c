@@ -2,6 +2,7 @@
 #include "i2c_master.h"
 #include "sin-math.h"
 #include "nrf24l01.h"
+
 const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 #define NUM_BYTES_PAYLOAD 3
@@ -41,6 +42,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	uart_rx_cplt_flag = 1;
 }
 
+void change_nrf_payload_length(uint8_t length);
+void change_nrf_tx_address(const uint8_t * tx_address);
 
 typedef union
 {
@@ -118,24 +121,46 @@ int main(void)
 
 	nrf_init(&nrf, &config);		//TODO: figure out why nrf init spin locks (probably bad cube init)
 
+	change_nrf_payload_length(4);//unnecessary
+	uint8_t tx_addr[5] = {0x01, 0x07, 0x33, 0xA0, 0};
+	for(int attempt = 0; attempt < 5; attempt++)
+	{
+		for(int strip = 0; strip < 3; strip++)
+		{
+			tx_addr[4]=strip;
+			change_nrf_tx_address((const uint8_t * )tx_addr);
+			uint32_t r32 = 200;
+			uint32_t g32 = 1023;
+			uint32_t b32 = 0;
+			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
+			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
+			HAL_Delay(5);
+		}
+	}
 	uint8_t comm_down_led_toggle_flag = 0;
 
 
 	float qd[num_frames];
-
 
 	//tau -> input, q_i2c and i2c_rx_previous are state, q -> output
 	floatsend_t tau[num_frames];
 	floatsend_t q_i2c[num_frames];	//receptions are weird. since the interrupt could complete itself ANYWHERE, we need to debuffer this in an interrupt handler or flag handler
 	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
 	float q[num_frames];	//this is used for pcontrol
-
+	float q_offset[num_frames];
 
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
 	uint16_t i2c_base_addr = 0x20;
 
+	uint32_t init_pos_ts = HAL_GetTick()+500;
+	while(HAL_GetTick()<init_pos_ts)
+	{
+		i2c_robot_master(i2c_base_addr, num_frames,
+				q_i2c,	i2c_rx_previous,
+				tau, q_offset);
+	}
 
 	while (1)
 	{
@@ -144,6 +169,8 @@ int main(void)
 				q_i2c,	i2c_rx_previous,
 				tau, q);
 		/***********************************************************End***************************************************************************/
+		for(int frame = 1; frame < num_frames; frame++)
+			q[frame] = q[frame]-q_offset[frame];
 
 		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
 		float t = ((float)(HAL_GetTick()))*.001f;
@@ -257,4 +284,24 @@ void color_wheel(uint32_t hue, float saturation, uint8_t * r, uint8_t * g, uint8
 	};
 	//TODO: add saturation
 
+}
+
+void change_nrf_payload_length(uint8_t length)
+{
+    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_RESET);
+
+	config.payload_length   = length;
+	nrf.config.payload_length = length;
+    nrf_set_rx_payload_width_p0(&nrf, nrf.config.payload_length);
+    nrf_set_rx_payload_width_p1(&nrf, nrf.config.payload_length);
+
+    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_SET);
+}
+
+void change_nrf_tx_address(const uint8_t * tx_address)
+{
+    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_RESET);
+    nrf_set_rx_address_p0(&nrf, tx_address	);
+    nrf_set_tx_address(&nrf, tx_address 	);
+    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_SET);
 }
