@@ -7,7 +7,7 @@ const int num_frames = 2;	//number of frames on the robot, including the zeroeth
 
 #define NUM_BYTES_PAYLOAD 3
 uint8_t tx_address[5] = {0x32,  0x77, 0x62, 0xFA, 0x00};
-uint8_t rx_address[5] = {'g', 'c', 'a', 'r', '2'};
+uint8_t rx_address[5] = {'h', 'e', 'X', 'r', 'o'};
 
 nrf24l01 nrf;
 nrf24l01_config config;
@@ -75,6 +75,21 @@ uint8_t is_nan(float v)
 		return 0;
 }
 
+/*
+ * constrained fast sin for zero to one, with phase and frequency modulation
+ */
+float sin_z1(float freq, float phase)
+{
+	return sin_fast(freq+phase)*.5f+.5f;
+}
+void rgb_disp(uint8_t r, uint8_t g, uint8_t b)
+{
+	uint16_t r16 = (1000*((uint16_t)r))/255;
+	uint16_t g16 = (1000*((uint16_t)g))/255;
+	uint16_t b16 = (1000*((uint16_t)b))/255;
+	TIMER_UPDATE_DUTY(b16,g16,r16);	//B,G,R
+}
+
 int main(void)
 {
 	HAL_Init();
@@ -82,6 +97,7 @@ int main(void)
 	MX_GPIO_Init();
 	MX_DMA_Init();
 	MX_ADC1_Init();
+	HAL_GPIO_WritePin(MPU_SS_GPIO_Port, MPU_SS_Pin, 1);
 	HAL_GPIO_WritePin(EN_HP_GPIO_Port, EN_HP_Pin, 1);
 	HAL_Delay(500);
 	MX_I2C1_Init();
@@ -148,6 +164,8 @@ int main(void)
 	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
 	float q[num_frames];	//this is used for pcontrol
 	float q_offset[num_frames];
+	for(int frame = 1; frame < num_frames; frame++)
+		q_offset[frame] = 0;
 
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
@@ -161,14 +179,20 @@ int main(void)
 				q_i2c,	i2c_rx_previous,
 				tau, q_offset);
 	}
-
+	uint8_t r,g,b;
 	while (1)
 	{
+//		float t= ((float)HAL_GetTick())*.001f;
+		color_wheel(HAL_GetTick()/100,1.0,&r,&g,&b);
+		rgb_disp(r,g,b);
+
+		tau[1].v = 5.0f;
 		/*****************This block of code manages I2C robust communications to a chain of i2c devices.****************************************/
 		i2c_robot_master(i2c_base_addr, num_frames,
 				q_i2c,	i2c_rx_previous,
 				tau, q);
 		/***********************************************************End***************************************************************************/
+
 		for(int frame = 1; frame < num_frames; frame++)
 			q[frame] = q[frame]-q_offset[frame];
 
@@ -179,7 +203,6 @@ int main(void)
 
 		for(int frame = 1; frame < num_frames; frame++)
 			tau[frame].v = 10.0f*(qd[frame]-q[frame]);
-		//tau[frame].v = qd[frame];
 
 		if(HAL_GetTick()>uart_ts)
 		{
@@ -188,38 +211,21 @@ int main(void)
 			uart_ts = HAL_GetTick()+15;
 		}
 
-		if(nrf_new_packet == 1)
-		{
-			TIMER_UPDATE_DUTY(
-					(rx_buf[0]*1000)/255,
-					(rx_buf[1]*1000)/255,
-					(rx_buf[2]*1000)/255
-			);
-
-			nrf_new_packet = 0;
-		}
-
-
-		if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts)
-		{
-			nrf_init(&nrf, &config);
-			TIMER_UPDATE_DUTY(0,0,1000);
-			comm_down_ts = HAL_GetTick()+1000;
-		}
-		else if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts - 900)
-		{
-			TIMER_UPDATE_DUTY(0,0,0);
-		}
-
-
+//		if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts)
+//		{
+//			nrf_init(&nrf, &config);
+//			comm_down_ts = HAL_GetTick()+1000;
+//		}
+//		else if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts - 900)
+//		{
+//			TIMER_UPDATE_DUTY(0,0,0);
+//		}
 
 		if(HAL_GetTick() > led_ts)
 		{
-			//			HAL_GPIO_TogglePin(STAT_GPIO_Port, STAT_Pin);
-			//			HAL_GPIO_TogglePin(NRF_CE_GPIO_Port, NRF_CE_Pin);
 			led_ts = HAL_GetTick()+250;
 		}
-		/**********************************End Legit q*************************************************************/
+//		/**********************************End Legit q*************************************************************/
 	}
 }
 
