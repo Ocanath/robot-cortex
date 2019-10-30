@@ -107,7 +107,7 @@ int main(void)
 
 	start_pwm();
 	TIMER_UPDATE_DUTY(0,1000,0);	//B,G,R
-	HAL_Delay(1000);
+	HAL_Delay(100);
 
 	float uart_rx_buf[num_frames];
 	int start_idx = 0;
@@ -164,50 +164,72 @@ int main(void)
 	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
 	float q[num_frames];	//this is used for pcontrol
 	float q_offset[num_frames];
+	float ierr[num_frames];
 	for(int frame = 1; frame < num_frames; frame++)
+	{
+		qd[frame]=0;
 		q_offset[frame] = 0;
+		ierr[frame]=0;
+	}
 
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
 	uint16_t i2c_base_addr = 0x20;
 
-	uint32_t init_pos_ts = HAL_GetTick()+500;
-	while(HAL_GetTick()<init_pos_ts)
-	{
-		i2c_robot_master(i2c_base_addr, num_frames,
-				q_i2c,	i2c_rx_previous,
-				tau, q_offset);
-	}
+//	uint32_t init_pos_ts = HAL_GetTick()+500;
+//	while(HAL_GetTick()<init_pos_ts)
+//	{
+//		i2c_robot_master(i2c_base_addr, num_frames,
+//				q_i2c,	i2c_rx_previous,
+//				tau, q_offset);
+//	}
+
+	uint32_t ierr_ts = 0;
 	uint8_t r,g,b;
 	while (1)
 	{
 //		float t= ((float)HAL_GetTick())*.001f;
-		color_wheel(HAL_GetTick()/100,1.0,&r,&g,&b);
+		color_wheel(fmod_2pi(q[1])*244.461993f, 1.0, &r, &g, &b);
 		rgb_disp(r,g,b);
 
-		tau[1].v = 5.0f;
+		//tau[1].v = 5.0f;
 		/*****************This block of code manages I2C robust communications to a chain of i2c devices.****************************************/
 		i2c_robot_master(i2c_base_addr, num_frames,
 				q_i2c,	i2c_rx_previous,
 				tau, q);
 		/***********************************************************End***************************************************************************/
 
+//		for(int frame = 1; frame < num_frames; frame++)
+//			q[frame] = q[frame]-q_offset[frame];
+//
+//		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
+//		float t = ((float)(HAL_GetTick()))*.001f;
+//		for(int frame = 1; frame < num_frames; frame++)
+//			qd[frame] = 3.0f*(sin_fast(t*4.0f));
+//
+		if(HAL_GetTick() > ierr_ts)
+		{
+			for(int frame = 1; frame < num_frames; frame++)
+				ierr[frame] += (qd[frame]-q[frame])*.001f;
+			ierr_ts = HAL_GetTick();
+		}
 		for(int frame = 1; frame < num_frames; frame++)
-			q[frame] = q[frame]-q_offset[frame];
+		{
 
-		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
-		float t = ((float)(HAL_GetTick()))*.001f;
-		for(int frame = 1; frame < num_frames; frame++)
-			qd[frame] = 3.0f*(sin_fast(t*4.0f));
-
-		for(int frame = 1; frame < num_frames; frame++)
-			tau[frame].v = 10.0f*(qd[frame]-q[frame]);
+			float tau_tmp = 20.0f*(qd[frame]-q[frame]) + 10*ierr[frame];
+			if(tau_tmp > 50.0f)
+				tau_tmp = 50.0f;
+			if(tau_tmp < -50.0f)
+				tau_tmp = -50.0f;
+			tau[frame].v = tau_tmp;
+		}
 
 		if(HAL_GetTick()>uart_ts)
 		{
 			HAL_UART_Transmit(&huart2, tau[1].d, 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&ierr[1]), 4, 10);
 			uart_ts = HAL_GetTick()+15;
 		}
 
