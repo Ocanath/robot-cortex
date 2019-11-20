@@ -90,6 +90,16 @@ void rgb_disp(uint8_t r, uint8_t g, uint8_t b)
 	TIMER_UPDATE_DUTY(b16,g16,r16);	//B,G,R
 }
 
+/*
+ * x is state variable for integral delay
+ */
+void controller_PI(float i_q_ref, float i_q, float Kp, float Ki, float * x, float * u)
+{
+	float err = i_q_ref-i_q;
+	*u = *x + Kp*err;
+	*x = *x + Ki*err;
+}
+
 int main(void)
 {
 	HAL_Init();
@@ -167,8 +177,10 @@ int main(void)
 	float q_offset[num_frames];
 	float q[num_frames];
 	float ierr[num_frames];
+	float x_i[num_frames];
 	for(int frame = 1; frame < num_frames; frame++)
 	{
+		x_i[frame]=0;
 		q_direct[frame]=0;
 		qd[frame]=0;
 		q_offset[frame] = 0;
@@ -179,7 +191,7 @@ int main(void)
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
-	uint16_t i2c_base_addr = 0x22;
+	uint16_t i2c_base_addr = 0x24;
 
 	uint32_t init_pos_ts = HAL_GetTick()+2000;
 	while(HAL_GetTick()<init_pos_ts)
@@ -202,6 +214,10 @@ int main(void)
 	uint8_t r,g,b;
 	int strip = 0;
 	uint32_t strip_update_ts = 0;
+	uint32_t time_start = HAL_GetTick();
+	float q_prev[num_frames];
+	float t_prev[num_frames];
+
 	while (1)
 	{
 //		float t= ((float)HAL_GetTick())*.001f;
@@ -216,9 +232,10 @@ int main(void)
 			q[frame] = (q_direct[frame]-q_offset[frame])*0.15789473684f;
 
 //		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
-//		float t = ((float)(HAL_GetTick()))*.001f;
+		float t = ((float)(HAL_GetTick()-time_start))*.001f;
 //		for(int frame = 1; frame < num_frames; frame++)
 //			qd[frame] = 3.0f*(sin_fast(t*4.0f));
+		qd[1] = 0;
 
 		if(HAL_GetTick() > ierr_ts)
 		{
@@ -228,17 +245,27 @@ int main(void)
 		}
 		for(int frame = 1; frame < num_frames; frame++)
 		{
-			float tau_tmp = 50.0f*(qd[frame]-q[frame]);// + 10*ierr[frame];
-			if(tau_tmp > 20.0f)
-				tau_tmp = 20.0f;
-			if(tau_tmp < -20.0f)
-				tau_tmp = -20.0f;
-			tau[frame].v = tau_tmp;
+			//float tau_tmp = 20.0f*(qd[frame]-q[frame]);// + 10*ierr[frame];
+			float tau_tmp = 0;
+			controller_PI(qd[frame], q[frame], 50.0f, .0001f, &x_i[frame], &tau_tmp);
+			if(tau_tmp > 40.0f)
+				tau_tmp = 40.0f;
+			if(tau_tmp < -40.0f)
+				tau_tmp = -40.0f;
+			tau[frame].v = tau_tmp; 
+			//tau[frame].v = 10.0f*sin_fast(t*4.0f);
+//			tau[frame].v = 10.0f;
 		}
 
 		if(HAL_GetTick()>uart_ts)
 		{
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&t), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
+			float dqdt = 9.54929659f*((q[1] - q_prev[1])/(t-t_prev[1]));
+			q_prev[1] = q[1];
+			t_prev[1] = t;
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&dqdt), 4, 10);
+			//HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[1].v), 4, 10);
 //			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
 			uart_ts = HAL_GetTick()+15;
 		}
