@@ -3,7 +3,7 @@
 #include "sin-math.h"
 #include "nrf24l01.h"
 
-const int num_frames = 4;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
+const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 #define NUM_BYTES_PAYLOAD 3
 uint8_t tx_address[5] = {0x32,  0x77, 0x62, 0xFA, 0x00};
@@ -145,9 +145,9 @@ int main(void)
 		{
 			tx_addr[4]=strip;
 			change_nrf_tx_address((const uint8_t * )tx_addr);
-			uint32_t r32 = 200;
-			uint32_t g32 = 1023;
-			uint32_t b32 = 0;
+			uint32_t r32 = 1023;
+			uint32_t g32 = 0;
+			uint32_t b32 = 1023;
 			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
 			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
 			HAL_Delay(5);
@@ -156,17 +156,20 @@ int main(void)
 	uint8_t comm_down_led_toggle_flag = 0;
 
 
+
 	float qd[num_frames];
 
 	//tau -> input, q_i2c and i2c_rx_previous are state, q -> output
 	floatsend_t tau[num_frames];
 	floatsend_t q_i2c[num_frames];	//receptions are weird. since the interrupt could complete itself ANYWHERE, we need to debuffer this in an interrupt handler or flag handler
 	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
-	float q[num_frames];	//this is used for pcontrol
+	float q_direct[num_frames];	//this is used for pcontrol
 	float q_offset[num_frames];
+	float q[num_frames];
 	float ierr[num_frames];
 	for(int frame = 1; frame < num_frames; frame++)
 	{
+		q_direct[frame]=0;
 		qd[frame]=0;
 		q_offset[frame] = 0;
 		ierr[frame]=0;
@@ -176,42 +179,47 @@ int main(void)
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
-	uint16_t i2c_base_addr = 0x20;
+	uint16_t i2c_base_addr = 0x22;
 
-//	uint32_t init_pos_ts = HAL_GetTick()+500;
-//	while(HAL_GetTick()<init_pos_ts)
-//	{
-//		i2c_robot_master(i2c_base_addr, num_frames,
-//				q_i2c,	i2c_rx_previous,
-//				tau, q_offset);
-//	}
-//	q_offset[1] = 0;
+	uint32_t init_pos_ts = HAL_GetTick()+2000;
+	while(HAL_GetTick()<init_pos_ts)
+	{
+		for(int frame = 1; frame < num_frames;frame++)
+		{
+			if(init_pos_ts - HAL_GetTick() < 10)
+				tau[frame].v = -0.0f;
+			else
+				tau[frame].v = -5.0f;
+		}
 
-	qd[1] = -PI/2;
+		i2c_robot_master(i2c_base_addr, num_frames,
+				q_i2c,	i2c_rx_previous,
+				tau, q_offset);
+
+	}
 
 	uint32_t ierr_ts = 0;
 	uint8_t r,g,b;
+	int strip = 0;
+	uint32_t strip_update_ts = 0;
 	while (1)
 	{
 //		float t= ((float)HAL_GetTick())*.001f;
 		color_wheel(fmod_2pi(q[1])*244.461993f, 1.0, &r, &g, &b);
-		rgb_disp(r,g,b);
 
-		//tau[1].v = 5.0f;
 		/*****************This block of code manages I2C robust communications to a chain of i2c devices.****************************************/
 		i2c_robot_master(i2c_base_addr, num_frames,
 				q_i2c,	i2c_rx_previous,
-				tau, q);
+				tau, q_direct);
 		/***********************************************************End***************************************************************************/
+		for(int frame = 0; frame < num_frames; frame++)
+			q[frame] = (q_direct[frame]-q_offset[frame])*0.15789473684f;
 
-		for(int frame = 1; frame < num_frames; frame++)
-			q[frame] = q[frame]-q_offset[frame];
-//
 //		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
 //		float t = ((float)(HAL_GetTick()))*.001f;
 //		for(int frame = 1; frame < num_frames; frame++)
 //			qd[frame] = 3.0f*(sin_fast(t*4.0f));
-//
+
 		if(HAL_GetTick() > ierr_ts)
 		{
 			for(int frame = 1; frame < num_frames; frame++)
@@ -220,7 +228,6 @@ int main(void)
 		}
 		for(int frame = 1; frame < num_frames; frame++)
 		{
-
 			float tau_tmp = 50.0f*(qd[frame]-q[frame]);// + 10*ierr[frame];
 			if(tau_tmp > 20.0f)
 				tau_tmp = 20.0f;
@@ -231,12 +238,8 @@ int main(void)
 
 		if(HAL_GetTick()>uart_ts)
 		{
-			//HAL_UART_Transmit(&huart2, tau[1].d, 4, 10);
-			//HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
-			//HAL_UART_Transmit(&huart2, (uint8_t *)(&ierr[1]), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
-			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
-			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[3]), 4, 10);
+//			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
 			uart_ts = HAL_GetTick()+15;
 		}
 
@@ -254,6 +257,23 @@ int main(void)
 		{
 			led_ts = HAL_GetTick()+250;
 		}
+		rgb_disp(r,g,b);
+//		if(HAL_GetTick()>=strip_update_ts)
+//		{
+//			tx_addr[4]=strip;
+//			change_nrf_tx_address((const uint8_t * )tx_addr);
+//			uint32_t r32 = r*4;
+//			uint32_t g32 = g*4;
+//			uint32_t b32 = b*4;
+//			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
+//			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
+//
+//			strip++;
+//			if(strip >= 3)
+//				strip=0;
+//			strip_update_ts = HAL_GetTick()+5;
+//		}
+
 //		/**********************************End Legit q*************************************************************/
 	}
 }
