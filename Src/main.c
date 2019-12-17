@@ -3,7 +3,7 @@
 #include "sin-math.h"
 #include "nrf24l01.h"
 
-const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
+const int num_frames = 3;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 #define NUM_BYTES_PAYLOAD 3
 uint8_t tx_address[5] = {0x32,  0x77, 0x62, 0xFA, 0x00};
@@ -191,7 +191,7 @@ int main(void)
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
-	uint16_t i2c_base_addr = 0x24;
+	uint16_t i2c_base_addr = 0x21;
 
 	uint32_t init_pos_ts = HAL_GetTick()+2000;
 	while(HAL_GetTick()<init_pos_ts)
@@ -201,7 +201,7 @@ int main(void)
 			if(init_pos_ts - HAL_GetTick() < 10)
 				tau[frame].v = -0.0f;
 			else
-				tau[frame].v = -5.0f;
+				tau[frame].v = -15.0f;
 		}
 
 		i2c_robot_master(i2c_base_addr, num_frames,
@@ -235,7 +235,8 @@ int main(void)
 		float t = ((float)(HAL_GetTick()-time_start))*.001f;
 //		for(int frame = 1; frame < num_frames; frame++)
 //			qd[frame] = 3.0f*(sin_fast(t*4.0f));
-		qd[1] = 0;
+		qd[1] = 1.0f * (.5f * sin_fast(8*t-HALF_PI) + 0.5f);
+		qd[2] = 1.5f * (.5f * cos_fast(8*t-HALF_PI) + 0.5f);
 
 		if(HAL_GetTick() > ierr_ts)
 		{
@@ -247,7 +248,7 @@ int main(void)
 		{
 			//float tau_tmp = 20.0f*(qd[frame]-q[frame]);// + 10*ierr[frame];
 			float tau_tmp = 0;
-			controller_PI(qd[frame], q[frame], 50.0f, .0001f, &x_i[frame], &tau_tmp);
+			controller_PI(qd[frame], q[frame], 600.0f, 0.000f, &x_i[frame], &tau_tmp);
 			if(tau_tmp > 40.0f)
 				tau_tmp = 40.0f;
 			if(tau_tmp < -40.0f)
@@ -259,12 +260,19 @@ int main(void)
 
 		if(HAL_GetTick()>uart_ts)
 		{
-			HAL_UART_Transmit(&huart2, (uint8_t *)(&t), 4, 10);
+//			HAL_UART_Transmit(&huart2, (uint8_t *)(&t), 4, 10);
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[1].v), 4, 10);
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[2].v), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
-			float dqdt = 9.54929659f*((q[1] - q_prev[1])/(t-t_prev[1]));
-			q_prev[1] = q[1];
-			t_prev[1] = t;
-			HAL_UART_Transmit(&huart2, (uint8_t *)(&dqdt), 4, 10);
+			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
+
+//			float dqdt = 9.54929659f*((q[1] - q_prev[1])/(t-t_prev[1]));
+//			q_prev[1] = q[1];
+//			t_prev[1] = t;
+
+
+//			HAL_UART_Transmit(&huart2, (uint8_t *)(&dqdt), 4, 10);
+
 			//HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[1].v), 4, 10);
 //			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
 			uart_ts = HAL_GetTick()+15;
