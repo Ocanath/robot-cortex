@@ -3,7 +3,7 @@
 #include "sin-math.h"
 #include "nrf24l01.h"
 
-const int num_frames = 3;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
+const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 #define NUM_BYTES_PAYLOAD 3
 uint8_t tx_address[5] = {0x32,  0x77, 0x62, 0xFA, 0x00};
@@ -191,7 +191,7 @@ int main(void)
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
-	uint16_t i2c_base_addr = 0x21;
+	uint16_t i2c_base_addr = 0x25;
 
 	uint32_t init_pos_ts = HAL_GetTick()+2000;
 	while(HAL_GetTick()<init_pos_ts)
@@ -236,7 +236,7 @@ int main(void)
 //		for(int frame = 1; frame < num_frames; frame++)
 //			qd[frame] = 3.0f*(sin_fast(t*4.0f));
 		qd[1] = 1.0f * (.5f * sin_fast(8*t-HALF_PI) + 0.5f);
-		qd[2] = 1.5f * (.5f * cos_fast(8*t-HALF_PI) + 0.5f);
+//		qd[2] = 1.5f * (.5f * cos_fast(8*t-HALF_PI) + 0.5f);
 
 		if(HAL_GetTick() > ierr_ts)
 		{

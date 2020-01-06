@@ -106,6 +106,12 @@ void i2c_robot_master(uint16_t i2c_base_addr, int num_frames,
 		I2C1_Reset();
 		i2c_master_state = I2C_TRANSMIT_READY;
 
+		i2c_addr_offset++;
+		if(i2c_addr_offset >= num_frames-1)
+			i2c_addr_offset = 0;
+		i2c_frame_offset = i2c_addr_offset + 1;
+
+
 		i2c_tx_cplt = 0;
 		i2c_rx_cplt = 0;
 	}
