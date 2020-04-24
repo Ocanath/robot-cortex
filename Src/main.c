@@ -94,10 +94,10 @@ int main(void)
 	MX_USART2_UART_Init();
 
 	start_pwm();
-	TIMER_UPDATE_DUTY(0,10,10);	//B,G,R
+	TIMER_UPDATE_DUTY(0,100,10);	//B,G,R
 	HAL_Delay(100);
 
-	//init_nrf();
+	init_nrf();
 
 	float qd[num_frames];
 

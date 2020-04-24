@@ -57,7 +57,7 @@ void change_nrf_tx_address(const uint8_t * tx_address)
 void init_nrf(void)
 {
 	config.data_rate = NRF_DATA_RATE_1MBPS;		//hoping lower baud rate will be more reliable
-	config.tx_power = NRF_TX_PWR_0dBm;
+	config.tx_power = NRF_TX_PWR_M18dBm;
 	config.crc_width = NRF_ADDR_WIDTH_5;
 	config.payload_length   = NUM_BYTES_PAYLOAD;    // payload bytes. maximum is 32 bytes.
 	config.retransmit_count = 15;   // maximum is 15 times
