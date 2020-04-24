@@ -2,48 +2,18 @@
 #include "i2c_master.h"
 #include "sin-math.h"
 #include "nrf24l01.h"
+#include "nrf.h"
+#include <string.h>
 
-const int num_frames = 2;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
-
-#define NUM_BYTES_PAYLOAD 3
-uint8_t tx_address[5] = {0x32,  0x77, 0x62, 0xFA, 0x00};
-uint8_t rx_address[5] = {'h', 'e', 'X', 'r', 'o'};
-
-nrf24l01 nrf;
-nrf24l01_config config;
-static uint8_t rx_buf[NUM_BYTES_PAYLOAD];
-static uint8_t tx_buf[NUM_BYTES_PAYLOAD];
-static uint32_t rx_ts = 0;
-static uint32_t comm_down_ts = 0;
-static uint8_t nrf_new_packet = 0;
-void nrf_packet_received_callback(nrf24l01 * dev, uint8_t * data)
-{
-	//	nrf_send_packet(&nrf, (uint8_t*)&tx_data_nrf);
-	rx_ts = HAL_GetTick();
-	dev->rx_busy = 0;
-	nrf_new_packet = 1;
-	//    HAL_GPIO_WritePin(dev->config.csn_port, dev->config.csn_pin,GPIO_PIN_RESET);
-}
+const int num_frames = 3;	//number of frames on the robot, including the zeroeth frame. If a robot has 6dof, it has 7 frames.
 
 void color_wheel(uint32_t hue, float saturation, uint8_t * r, uint8_t * g, uint8_t * b);
-
-/*
- * callback function that handles the gpio interrupt count
- */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if(GPIO_Pin == GPIO_PIN_7)
-		nrf_irq_handler(&nrf);
-}
 
 uint8_t uart_rx_cplt_flag = 0;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	uart_rx_cplt_flag = 1;
 }
-
-void change_nrf_payload_length(uint8_t length);
-void change_nrf_tx_address(const uint8_t * tx_address);
 
 typedef union
 {
@@ -100,6 +70,14 @@ void controller_PI(float i_q_ref, float i_q, float Kp, float Ki, float * x, floa
 	*x = *x + Ki*err;
 }
 
+char str[64];
+void print_string(const char * str)
+{
+	int strlen;
+	for(strlen = 0; str[strlen] != 0; strlen++);
+	HAL_UART_Transmit(&huart2, (uint8_t*)str, strlen, 10);
+}
+
 int main(void)
 {
 	HAL_Init();
@@ -116,56 +94,10 @@ int main(void)
 	MX_USART2_UART_Init();
 
 	start_pwm();
-	TIMER_UPDATE_DUTY(0,1000,0);	//B,G,R
+	TIMER_UPDATE_DUTY(0,10,10);	//B,G,R
 	HAL_Delay(100);
 
-	float uart_rx_buf[num_frames];
-	int start_idx = 0;
-	int num_bytes_frame_buf = sizeof(float)*num_frames;
-	uint32_t uart_tx_ts = 0;
-
-	config.data_rate = NRF_DATA_RATE_1MBPS;		//hoping lower baud rate will be more reliable
-	config.tx_power = NRF_TX_PWR_0dBm;
-	config.crc_width = NRF_ADDR_WIDTH_5;
-	config.payload_length   = NUM_BYTES_PAYLOAD;    // payload bytes. maximum is 32 bytes.
-	config.retransmit_count = 15;   // maximum is 15 times
-	config.retransmit_delay = 0x0F; // 4000us, LSB:250us
-	config.rf_channel       = 0;
-	config.rx_address       = rx_address;
-	config.tx_address       = tx_address;
-	config.rx_buffer        = rx_buf;
-
-	config.spi = &hspi1;
-	config.spi_timeout = 100;
-
-	config.ce_port = NRF_CE_GPIO_Port;		//GPIOD
-	config.ce_pin = NRF_CE_Pin;				//GPIO_PIN_2
-	config.irq_port = NRF_INT_GPIO_Port;	//board ok
-	config.irq_pin = NRF_INT_Pin;			//board ok
-	config.csn_port = NRF_SS_GPIO_Port;		//
-	config.csn_pin = NRF_SS_Pin;			//
-
-	nrf_init(&nrf, &config);		//TODO: figure out why nrf init spin locks (probably bad cube init)
-
-	change_nrf_payload_length(4);//unnecessary
-	uint8_t tx_addr[5] = {0x01, 0x07, 0x33, 0xA0, 0};
-	for(int attempt = 0; attempt < 5; attempt++)
-	{
-		for(int strip = 0; strip < 3; strip++)
-		{
-			tx_addr[4]=strip;
-			change_nrf_tx_address((const uint8_t * )tx_addr);
-			uint32_t r32 = 1023;
-			uint32_t g32 = 0;
-			uint32_t b32 = 1023;
-			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
-			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
-			HAL_Delay(5);
-		}
-	}
-	uint8_t comm_down_led_toggle_flag = 0;
-
-
+	//init_nrf();
 
 	float qd[num_frames];
 
@@ -191,8 +123,36 @@ int main(void)
 	uint32_t led_ts = 0;
 	uint32_t uart_ts = 0;
 
-	uint16_t i2c_base_addr = 0x25;
+	uint8_t addr_map[num_frames-1];
 
+	addr_map[0] = 0x24;	//leg 0
+	addr_map[1] = 0x2B;
+//	addr_map[2] = 0x2B;
+
+//	addr_map[3] = 0x21;	//leg 1
+//	addr_map[4] = 0x25;
+//	addr_map[5] = 0x28;
+
+//	addr_map[6] = 0x22; //leg 2
+//	addr_map[7] = 0x27;
+//	addr_map[8] = 0x2A;
+	uint8_t r,g,b;
+	HAL_Delay(2000);
+	while(1)
+	{
+		float t = (float)HAL_GetTick()*.001f;
+//		tau[1].v = 15.0f*(.5f*sin_fast(t)+.5f);
+//		tau[1].v = 0.5f;
+		tau[1].v = -15.5f;
+		tau[2].v = -15.5f;
+		i2c_robot_master(addr_map, num_frames,
+				q_i2c,	i2c_rx_previous,
+				tau, q_offset);
+
+
+		color_wheel(t*20,1.0,&r,&g,&b);
+		rgb_disp(r,g,b);
+	}
 	uint32_t init_pos_ts = HAL_GetTick()+2000;
 	while(HAL_GetTick()<init_pos_ts)
 	{
@@ -204,39 +164,36 @@ int main(void)
 				tau[frame].v = -15.0f;
 		}
 
-		i2c_robot_master(i2c_base_addr, num_frames,
+		i2c_robot_master(addr_map, num_frames,
 				q_i2c,	i2c_rx_previous,
 				tau, q_offset);
 
 	}
-
 	uint32_t ierr_ts = 0;
-	uint8_t r,g,b;
-	int strip = 0;
-	uint32_t strip_update_ts = 0;
 	uint32_t time_start = HAL_GetTick();
-	float q_prev[num_frames];
-	float t_prev[num_frames];
 
 	while (1)
 	{
-//		float t= ((float)HAL_GetTick())*.001f;
+		//		float t= ((float)HAL_GetTick())*.001f;
 		color_wheel(fmod_2pi(q[1])*244.461993f, 1.0, &r, &g, &b);
 
 		/*****************This block of code manages I2C robust communications to a chain of i2c devices.****************************************/
-		i2c_robot_master(i2c_base_addr, num_frames,
+		i2c_robot_master(addr_map, num_frames,
 				q_i2c,	i2c_rx_previous,
 				tau, q_direct);
 		/***********************************************************End***************************************************************************/
 		for(int frame = 0; frame < num_frames; frame++)
 			q[frame] = (q_direct[frame]-q_offset[frame])*0.15789473684f;
 
-//		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
+		//		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
 		float t = ((float)(HAL_GetTick()-time_start))*.001f;
-//		for(int frame = 1; frame < num_frames; frame++)
-//			qd[frame] = 3.0f*(sin_fast(t*4.0f));
-		qd[1] = 1.0f * (.5f * sin_fast(8*t-HALF_PI) + 0.5f);
-//		qd[2] = 1.5f * (.5f * cos_fast(8*t-HALF_PI) + 0.5f);
+		//		for(int frame = 1; frame < num_frames; frame++)
+		//			qd[frame] = 3.0f*(sin_fast(t*4.0f));
+		//qd[1] = 1.0f * (.5f * sin_fast(8*t-HALF_PI) + 0.5f);
+		qd[1] = .6f;
+		qd[2] = .6f;
+
+		//		qd[2] = 1.5f * (.5f * cos_fast(8*t-HALF_PI) + 0.5f);
 
 		if(HAL_GetTick() > ierr_ts)
 		{
@@ -255,61 +212,61 @@ int main(void)
 				tau_tmp = -40.0f;
 			tau[frame].v = tau_tmp; 
 			//tau[frame].v = 10.0f*sin_fast(t*4.0f);
-//			tau[frame].v = 10.0f;
+			//			tau[frame].v = 10.0f;
 		}
 
 		if(HAL_GetTick()>uart_ts)
 		{
-//			HAL_UART_Transmit(&huart2, (uint8_t *)(&t), 4, 10);
+			//			HAL_UART_Transmit(&huart2, (uint8_t *)(&t), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[1].v), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[2].v), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[1]), 4, 10);
 			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
 
-//			float dqdt = 9.54929659f*((q[1] - q_prev[1])/(t-t_prev[1]));
-//			q_prev[1] = q[1];
-//			t_prev[1] = t;
+			//			float dqdt = 9.54929659f*((q[1] - q_prev[1])/(t-t_prev[1]));
+			//			q_prev[1] = q[1];
+			//			t_prev[1] = t;
 
 
-//			HAL_UART_Transmit(&huart2, (uint8_t *)(&dqdt), 4, 10);
+			//			HAL_UART_Transmit(&huart2, (uint8_t *)(&dqdt), 4, 10);
 
 			//HAL_UART_Transmit(&huart2, (uint8_t *)(&tau[1].v), 4, 10);
-//			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
+			//			HAL_UART_Transmit(&huart2, (uint8_t *)(&q[2]), 4, 10);
 			uart_ts = HAL_GetTick()+15;
 		}
 
-//		if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts)
-//		{
-//			nrf_init(&nrf, &config);
-//			comm_down_ts = HAL_GetTick()+1000;
-//		}
-//		else if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts - 900)
-//		{
-//			TIMER_UPDATE_DUTY(0,0,0);
-//		}
+		//		if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts)
+		//		{
+		//			nrf_init(&nrf, &config);
+		//			comm_down_ts = HAL_GetTick()+1000;
+		//		}
+		//		else if(HAL_GetTick()-rx_ts > 1000 && HAL_GetTick() > comm_down_ts - 900)
+		//		{
+		//			TIMER_UPDATE_DUTY(0,0,0);
+		//		}
 
 		if(HAL_GetTick() > led_ts)
 		{
 			led_ts = HAL_GetTick()+250;
 		}
 		rgb_disp(r,g,b);
-//		if(HAL_GetTick()>=strip_update_ts)
-//		{
-//			tx_addr[4]=strip;
-//			change_nrf_tx_address((const uint8_t * )tx_addr);
-//			uint32_t r32 = r*4;
-//			uint32_t g32 = g*4;
-//			uint32_t b32 = b*4;
-//			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
-//			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
-//
-//			strip++;
-//			if(strip >= 3)
-//				strip=0;
-//			strip_update_ts = HAL_GetTick()+5;
-//		}
+		//		if(HAL_GetTick()>=strip_update_ts)
+		//		{
+		//			tx_addr[4]=strip;
+		//			change_nrf_tx_address((const uint8_t * )tx_addr);
+		//			uint32_t r32 = r*4;
+		//			uint32_t g32 = g*4;
+		//			uint32_t b32 = b*4;
+		//			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
+		//			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
+		//
+		//			strip++;
+		//			if(strip >= 3)
+		//				strip=0;
+		//			strip_update_ts = HAL_GetTick()+5;
+		//		}
 
-//		/**********************************End Legit q*************************************************************/
+		//		/**********************************End Legit q*************************************************************/
 	}
 }
 
@@ -376,22 +333,3 @@ void color_wheel(uint32_t hue, float saturation, uint8_t * r, uint8_t * g, uint8
 
 }
 
-void change_nrf_payload_length(uint8_t length)
-{
-    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_RESET);
-
-	config.payload_length   = length;
-	nrf.config.payload_length = length;
-    nrf_set_rx_payload_width_p0(&nrf, nrf.config.payload_length);
-    nrf_set_rx_payload_width_p1(&nrf, nrf.config.payload_length);
-
-    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_SET);
-}
-
-void change_nrf_tx_address(const uint8_t * tx_address)
-{
-    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_RESET);
-    nrf_set_rx_address_p0(&nrf, tx_address	);
-    nrf_set_tx_address(&nrf, tx_address 	);
-    HAL_GPIO_WritePin(nrf.config.ce_port, nrf.config.ce_pin, GPIO_PIN_SET);
-}

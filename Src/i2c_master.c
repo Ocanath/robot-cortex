@@ -94,11 +94,11 @@ uint32_t i2c_busy_time()
 
 static uint16_t i2c_addr_offset = 0;
 static uint32_t i2c_frame_offset = 1;
-void i2c_robot_master(uint16_t i2c_base_addr, int num_frames,
+void i2c_robot_master(uint8_t * addr_map, int num_frames,
 		floatsend_t * q_i2c,	float * i2c_rx_previous,
 		floatsend_t * tau, float * q)
 {
-	int rc = handle_i2c_master(&hi2c1, ((i2c_base_addr+i2c_addr_offset) << 1), q_i2c[i2c_frame_offset].d, 4, tau[i2c_frame_offset].d, 4);	//This works!!!
+	int rc = handle_i2c_master(&hi2c1, (addr_map[i2c_addr_offset] << 1), q_i2c[i2c_frame_offset].d, 4, tau[i2c_frame_offset].d, 4);	//This works!!!
 	if(rc == -1 || hi2c1.ErrorCode != 0)
 	{
 		HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery
