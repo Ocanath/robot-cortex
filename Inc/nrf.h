@@ -14,7 +14,7 @@
 extern uint8_t rx_buf[NUM_BYTES_PAYLOAD];
 extern uint8_t tx_buf[NUM_BYTES_PAYLOAD];
 extern uint32_t comm_down_ts;
-
+extern nrf24l01 nrf;
 void init_nrf(void);
 void change_nrf_tx_address(const uint8_t * tx_address);
 void change_nrf_payload_length(uint8_t length);
