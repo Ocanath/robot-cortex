@@ -3,8 +3,9 @@
 #include "sin-math.h"
 #include "nrf24l01.h"
 #include "nrf.h"
-#include <string.h>
 
+
+#define TAU_TEST_CHAIN 1
 
 #define DEG_TO_RAD 0.0174532925f
 
@@ -39,15 +40,6 @@ void start_pwm();
 		TIM1->CCR3 = duty3; \
 		TIM1->CR1 &= ~TIM_CR1_UDIS;
 
-uint8_t is_nan(float v)
-{
-	uint32_t * fptr_chk = (uint32_t*)(&v);	//mask pointer of the most recently read q value
-	if( (*fptr_chk & 0x7f800000) == 0x7f800000)		//if the most recent q value is NaN
-		return 1;
-	else
-		return 0;
-}
-
 /*
  * constrained fast sin for zero to one, with phase and frequency modulation
  */
@@ -71,91 +63,6 @@ void controller_PI(float i_q_ref, float i_q, float Kp, float Ki, float * x, floa
 	float err = i_q_ref-i_q;
 	*u = *x + Kp*err;
 	*x = *x + Ki*err;
-}
-
-char str[64];
-void print_string(const char * str)
-{
-	int strlen;
-	for(strlen = 0; str[strlen] != 0; strlen++);
-	HAL_UART_Transmit(&huart2, (uint8_t*)str, strlen, 10);
-}
-void print_float(float f)
-{
-	HAL_UART_Transmit(&huart2, (uint8_t *)(&f), 4, 10);
-}
-void disp_i2c_map(uint8_t addr_used[128])
-{
-	print_string("    0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
-	for(int r = 0; r < 8; r++)
-	{
-		sprintf(str, "%d0: ", r);
-		print_string(str);
-		for(int c = 0; c < 16; c++)
-		{
-			uint8_t addr = addr_used[c+r*16];
-			if(addr != 0)
-			{
-				sprintf(str, "%.2x ", addr);
-				print_string(str);
-			}
-			else
-				print_string("-- ");
-		}
-		print_string("\r\n");
-	}
-
-}
-static uint8_t addr_list[128];
-int check_i2c_devices(uint8_t addr_used[128])
-{
-
-	for(int i = 0; i < 128; i++)
-	{
-		addr_used[i] = 0;
-		addr_list[i]=i;
-	}
-	int i2c_addr_offset = 0;
-	floatsend_t qtmp;
-	floatsend_t tautmp;
-	uint32_t check_ts = HAL_GetTick()+500;
-	while(HAL_GetTick()<check_ts)
-	{
-		int rc = handle_i2c_master(&hi2c1, (addr_list[i2c_addr_offset] << 1), qtmp.d, 4, tautmp.d, 4);	//This works!!!
-		if(rc == -1 || hi2c1.ErrorCode != 0)
-		{
-			HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);				//and maybe doing this are critical for i2c_IT error recovery
-			while(HAL_NVIC_GetPendingIRQ(I2C1_EV_IRQn)==1);
-			I2C1_Reset();
-			i2c_master_state = I2C_TRANSMIT_READY;
-
-			i2c_addr_offset++;
-			if(i2c_addr_offset >= 128)
-				i2c_addr_offset = 0;
-
-			i2c_tx_cplt = 0;
-			i2c_rx_cplt = 0;
-		}
-		if(i2c_tx_cplt == 1 && i2c_rx_cplt == 1)
-		{
-
-			addr_used[i2c_addr_offset] = i2c_addr_offset;
-
-			i2c_addr_offset++;
-			if(i2c_addr_offset >= 128)
-				i2c_addr_offset = 0;
-
-			i2c_tx_cplt = 0;
-			i2c_rx_cplt = 0;
-		}
-	}
-	int num_connected_devices = 0;
-	for(int i = 0; i < 128; i++)
-	{
-		if(addr_used[i] != 0)
-			num_connected_devices++;
-	}
-	return num_connected_devices;
 }
 
 
@@ -195,37 +102,80 @@ int main(void)
 //			HAL_Delay(5);
 //		}
 //	}
+	floatsend_t tau[num_frames];
+	floatsend_t q_i2c[num_frames];	//receptions are weird. since the interrupt could complete itself ANYWHERE, we need to debuffer this in an interrupt handler or flag handler
+	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
+	float q_offset[num_frames];
+	uint8_t addr_map[num_frames-1];
+	addr_map[0] = 0x20;
+	addr_map[1] = 0x21;
+	addr_map[2] = 0x22;
+	addr_map[3] = 0x24;
+	addr_map[4] = 0x2B;
+	addr_map[5] = 0x25;
+	addr_map[6] = 0x28;
+	addr_map[7] = 0x27;
+	addr_map[8] = 0x2A;
 
-	uint8_t addr_used[128];
-	if(check_i2c_devices(addr_used) != (num_frames-1))
+	int num_detected_i2c_devices = check_i2c_devices();
+	if(num_detected_i2c_devices != (num_frames-1))
 	{
+		if(TAU_TEST_CHAIN)
+		{
+			int dev_load_cnt = 0;
+			for(int i = 0; i < 128;i++)
+			{
+				if(gl_addr_used[i] != 0)
+				{
+					addr_map[dev_load_cnt] = gl_addr_used[i];
+					dev_load_cnt++;
+					if(dev_load_cnt >= num_detected_i2c_devices)
+						break;
+				}
+			}
+			while(1)
+			{
+				float dur_sec = 4.f;
+				for(uint32_t ts = HAL_GetTick()+(uint32_t)(dur_sec*1000.f); HAL_GetTick()<ts;)
+				{
+					float t = ((float)HAL_GetTick())*.001f;
+					float base = sin_z1(10.f*t,0.f);
+					rgb_disp((uint8_t)(255.f*base),(uint8_t)(30.f*base),0);
+
+					tau[1].v = 15.f;
+					i2c_robot_master(addr_map, 2,
+						q_i2c,	i2c_rx_previous,
+						tau, q_offset);
+				}
+				for(uint32_t ts = HAL_GetTick()+(uint32_t)(dur_sec*1000.f); HAL_GetTick()<ts;)
+				{
+					float t = ((float)HAL_GetTick())*.001f;
+					rgb_disp(255*sin_z1(10.f*t,0.f),0,0);
+
+					tau[1].v = -15.f;
+					i2c_robot_master(addr_map, 2,
+						q_i2c,	i2c_rx_previous,
+						tau, q_offset);
+				}
+			}
+		}
 		while(1)
 		{
 			TIMER_UPDATE_DUTY(0,0,1000);	//B,G,R
 			HAL_Delay(100);
 			TIMER_UPDATE_DUTY(0,0,0);	//B,G,R
 			HAL_Delay(100);
+			sprintf(gl_print_str, "num_connected = %d\r\n", check_i2c_devices());
+			print_string("\033c\r\n");
+			print_string(gl_print_str);
+			disp_i2c_map();
+			HAL_Delay(2000);
+
 		}
 	}
 
-//	while(1)
-//	{
-//		sprintf(str, "num_connected = %d\r\n", check_i2c_devices(addr_used));
-//		print_string("\033c\r\n");
-//		print_string(str);
-//		disp_i2c_map(addr_used);
-//		HAL_Delay(2000);
-//	}
-
-
 	float qd[num_frames];
-
-	//tau -> input, q_i2c and i2c_rx_previous are state, q -> output
-	floatsend_t tau[num_frames];
-	floatsend_t q_i2c[num_frames];	//receptions are weird. since the interrupt could complete itself ANYWHERE, we need to debuffer this in an interrupt handler or flag handler
-	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
 	float q_direct[num_frames];	//this is used for pcontrol
-	float q_offset[num_frames];
 	float q[num_frames];
 	float ierr[num_frames];
 	float x_i[num_frames];
@@ -278,20 +228,8 @@ int main(void)
 
 	uint32_t uart_ts = 0;
 
-	uint8_t addr_map[num_frames-1];
 
-	addr_map[0] = 0x20;
-	addr_map[1] = 0x21;
-	addr_map[2] = 0x22;
 
-	addr_map[3] = 0x24;
-	addr_map[4] = 0x2B;
-
-	addr_map[5] = 0x25;
-	addr_map[6] = 0x28;
-
-	addr_map[7] = 0x27;
-	addr_map[8] = 0x2A;
 
 	float base_calibration_torque = -0.0f;
 	float leg_calibration_torque = -15.0f;
