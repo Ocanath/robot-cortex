@@ -65,7 +65,14 @@ void controller_PI(float i_q_ref, float i_q, float Kp, float Ki, float * x, floa
 	*x = *x + Ki*err;
 }
 
-
+float sat_f(float v, float thresh)
+{
+	if(v > thresh)
+		v = thresh;
+	else if (v < -thresh)
+		v = -thresh;
+	return v;
+}
 int main(void)
 {
 	HAL_Init();
@@ -85,23 +92,23 @@ int main(void)
 	TIMER_UPDATE_DUTY(0,100,10);	//B,G,R
 	HAL_Delay(100);
 
-//	init_nrf();
-//	change_nrf_payload_length(4);//unnecessary
-//	uint8_t tx_addr[5] = {0x01, 0x07, 0x33, 0xA0, 0};
-//	for(int attempt = 0; attempt < 5; attempt++)
-//	{
-//		for(int strip = 0; strip < 3; strip++)
-//		{
-//			tx_addr[4]=strip;
-//			change_nrf_tx_address((const uint8_t * )tx_addr);
-//			uint32_t r32 = 1023;
-//			uint32_t g32 = 980;
-//			uint32_t b32 = 970;
-//			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
-//			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
-//			HAL_Delay(5);
-//		}
-//	}
+	//	init_nrf();
+	//	change_nrf_payload_length(4);//unnecessary
+	//	uint8_t tx_addr[5] = {0x01, 0x07, 0x33, 0xA0, 0};
+	//	for(int attempt = 0; attempt < 5; attempt++)
+	//	{
+	//		for(int strip = 0; strip < 3; strip++)
+	//		{
+	//			tx_addr[4]=strip;
+	//			change_nrf_tx_address((const uint8_t * )tx_addr);
+	//			uint32_t r32 = 1023;
+	//			uint32_t g32 = 980;
+	//			uint32_t b32 = 970;
+	//			uint32_t tmp = ((r32 & 0x03FF) << 22) | ((g32 & 0x03FF) << 12) | ((b32 & 0x03FF) << 2);
+	//			nrf_send_packet_noack(&nrf, (uint8_t *)(&tmp) );
+	//			HAL_Delay(5);
+	//		}
+	//	}
 	floatsend_t tau[num_frames];
 	floatsend_t q_i2c[num_frames];	//receptions are weird. since the interrupt could complete itself ANYWHERE, we need to debuffer this in an interrupt handler or flag handler
 	float i2c_rx_previous[num_frames];	//this is used ONLY FOR NaN handling!!!!!
@@ -133,30 +140,37 @@ int main(void)
 						break;
 				}
 			}
+			float dur_sec = 4.f;
+			for(uint32_t ts = HAL_GetTick()+(uint32_t)(dur_sec*1000.f); HAL_GetTick()<ts;)
+			{
+				float t = ((float)HAL_GetTick())*.001f;
+				float base = sin_z1(10.f*t,0.f);
+				rgb_disp((uint8_t)(255.f*base),(uint8_t)(30.f*base),0);
+				for(int mtr = 0; mtr < num_detected_i2c_devices; mtr++)
+					tau[mtr+1].v = 15.f;	//addr is 0 referenced but motor is joint/frame referenced.
+				i2c_robot_master(addr_map, num_detected_i2c_devices+1,
+						q_i2c,	i2c_rx_previous,
+						tau, q_offset);
+			}
+			for(uint32_t ts = HAL_GetTick()+(uint32_t)(dur_sec*1000.f); HAL_GetTick()<ts;)
+			{
+				float t = ((float)HAL_GetTick())*.001f;
+				rgb_disp(255*sin_z1(10.f*t,0.f),0,0);
+
+				for(int mtr = 0; mtr < num_detected_i2c_devices; mtr++)
+					tau[mtr+1].v = -15.f;
+				i2c_robot_master(addr_map, num_detected_i2c_devices+1,
+						q_i2c,	i2c_rx_previous,
+						tau, q_offset);
+			}
 			while(1)
 			{
-				float dur_sec = 4.f;
-				for(uint32_t ts = HAL_GetTick()+(uint32_t)(dur_sec*1000.f); HAL_GetTick()<ts;)
-				{
-					float t = ((float)HAL_GetTick())*.001f;
-					float base = sin_z1(10.f*t,0.f);
-					rgb_disp((uint8_t)(255.f*base),(uint8_t)(30.f*base),0);
-
-					tau[1].v = 15.f;
-					i2c_robot_master(addr_map, 2,
+				for(int mtr = 0; mtr < num_detected_i2c_devices; mtr++)
+					tau[mtr+1].v = sat_f((0-q_i2c[mtr+1].v)*50.f,15.f);
+				i2c_robot_master(addr_map, num_detected_i2c_devices+1,
 						q_i2c,	i2c_rx_previous,
 						tau, q_offset);
-				}
-				for(uint32_t ts = HAL_GetTick()+(uint32_t)(dur_sec*1000.f); HAL_GetTick()<ts;)
-				{
-					float t = ((float)HAL_GetTick())*.001f;
-					rgb_disp(255*sin_z1(10.f*t,0.f),0,0);
-
-					tau[1].v = -15.f;
-					i2c_robot_master(addr_map, 2,
-						q_i2c,	i2c_rx_previous,
-						tau, q_offset);
-				}
+				HAL_Delay(1  );
 			}
 		}
 		while(1)
@@ -273,7 +287,7 @@ int main(void)
 	uint8_t r,g,b;
 	while (1)
 	{
-//		float t= ((float)HAL_GetTick())*.001f;
+		//		float t= ((float)HAL_GetTick())*.001f;
 		//color_wheel(fmod_2pi(q[1])*244.461993f, 1.0, &r, &g, &b);
 		color_wheel(HAL_GetTick(), 1.0, &r, &g, &b);
 
@@ -285,15 +299,15 @@ int main(void)
 		for(int frame = 0; frame < num_frames; frame++)
 			q[frame] = (q_direct[frame]-q_offset[frame])*gbx_conv_ratio[frame];
 
-			//		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
+		//		/**********************************Inside here, q and q_previous are legitimate*************************************************************/
 		float t = ((float)(HAL_GetTick()-time_start))*.001f;
 		//		for(int frame = 1; frame < num_frames; frame++)
 		//			qd[frame] = 3.0f*(sin_fast(t*4.0f));
 		//qd[1] = 1.0f * (.5f * sin_fast(8*t-HALF_PI) + 0.5f);
 
-//		qd[1] = 36.76f*DEG_TO_RAD;
-//		qd[2] = 36.76f*DEG_TO_RAD;
-//		qd[3] = 36.76f*DEG_TO_RAD;
+		//		qd[1] = 36.76f*DEG_TO_RAD;
+		//		qd[2] = 36.76f*DEG_TO_RAD;
+		//		qd[3] = 36.76f*DEG_TO_RAD;
 		qd[1] = 0;
 		qd[2] = 0;
 		qd[3] = 0;
@@ -324,7 +338,7 @@ int main(void)
 				tau_tmp = tau_thresh[frame];
 			if(tau_tmp < -tau_thresh[frame])
 				tau_tmp = -tau_thresh[frame];
-			tau[frame].v = tau_tmp; 
+			tau[frame].v = tau_tmp;
 		}
 
 		if(HAL_GetTick()>uart_ts)
