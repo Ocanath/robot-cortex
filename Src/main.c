@@ -73,6 +73,13 @@ float sat_f(float v, float thresh)
 		v = -thresh;
 	return v;
 }
+
+uint8_t gl_uart_rx_flag = 0;
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	gl_uart_rx_flag = 1;
+}
+
 int main(void)
 {
 	HAL_Init();
@@ -92,6 +99,24 @@ int main(void)
 	TIMER_UPDATE_DUTY(0,100,10);	//B,G,R
 	HAL_Delay(100);
 
+	floatsend_t uart_tau;
+	floatsend_t uart_q;
+	uint32_t send_ts = HAL_GetTick();
+	while(1)
+	{
+		if(HAL_GetTick() >= send_ts)
+		{
+			//eval here
+			HAL_UART_Transmit_IT(&huart2, uart_tau.v, 4);
+			send_ts = HAL_GetTick()+1;
+		}
+		HAL_UART_Receive_IT(&huart2, uart_q.v, 4);
+		if(gl_uart_rx_flag == 1)
+		{
+
+			gl_uart_rx_flag = 0;
+		}
+	}
 	//	init_nrf();
 	//	change_nrf_payload_length(4);//unnecessary
 	//	uint8_t tx_addr[5] = {0x01, 0x07, 0x33, 0xA0, 0};
