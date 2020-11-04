@@ -18,7 +18,7 @@ typedef struct joint
 	uint8_t led_cmd;
 }joint;
 
-#define NUM_JOINTS 2
+#define NUM_JOINTS 3
 
 joint chain[NUM_JOINTS] = {
 		{
@@ -33,6 +33,15 @@ joint chain[NUM_JOINTS] = {
 		{
 			.id = 0x7FF-24,
 			.frame = 2,
+			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.q = {.v = 0.f},
+			.tau = {.v = 0.f},
+			.led_cmd = LED_OFF
+		},
+		{
+			.id = 0x7FF-25,
+			.frame = 3,
 			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 			.q = {.v = 0.f},
@@ -66,42 +75,27 @@ int main(void)
 
 	int led_state = 0;
 	uint32_t can_tx_ts = 0;
-	int joint_idx = 0;
 	uint32_fmt_t can_tx_data = {0};
 	uint32_fmt_t can_rx_data = {0};
-
 
 	while(1)
 	{
 		if(HAL_GetTick()>can_tx_ts)
 		{
 			led_state = (led_state + 1) % (NUM_JOINTS + 1);
-			switch(led_state)
+			if(led_state == NUM_JOINTS)
 			{
-				case(0):
-				{
-					rgb_play((rgb_t){0,255,0});
-					chain[0].led_cmd = LED_OFF;
-					chain[1].led_cmd = LED_OFF;
-					break;
-				}
-				case(1):
-				{
+				rgb_play((rgb_t){0,255,0});
+				for(int i = 0; i < NUM_JOINTS; i++)
+					chain[i].led_cmd = LED_OFF;
+			}
+			else
+			{
 					rgb_play((rgb_t){0,0,0});
-					chain[0].led_cmd = LED_ON;
-					chain[1].led_cmd = LED_OFF;
-					break;
-				}
-				case(2):
-				{
-					rgb_play((rgb_t){0,0,0});
-					chain[0].led_cmd = LED_OFF;
-					chain[1].led_cmd = LED_ON;
-					break;
-				}
-				default:
-					break;
-			};
+					for(int i = 0; i < NUM_JOINTS; i++)
+						chain[i].led_cmd = LED_OFF;
+					chain[led_state].led_cmd = LED_ON;
+			}
 
 			for(int i = 0; i < NUM_JOINTS; i++)
 			{
@@ -114,7 +108,7 @@ int main(void)
 				{}
 			}
 
-			can_tx_ts = HAL_GetTick()+333;
+			can_tx_ts = HAL_GetTick()+150;
 		}
 
 		if(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) >= 1)
