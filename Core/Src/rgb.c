@@ -8,6 +8,6 @@
 
 void rgb_play(rgb_t rgb)
 {
-	TIMER_UPDATE_DUTY(rgb.r, rgb.g, rgb.b);
+	TIMER_UPDATE_DUTY(rgb.b, rgb.g, rgb.r);
 }
 

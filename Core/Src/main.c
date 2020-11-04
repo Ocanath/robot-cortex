@@ -57,30 +57,71 @@ int main(void)
 	MX_SPI1_Init();
 	MX_TIM1_Init();
 
-	rgb_play((rgb_t){255,255,255});
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 
+	rgb_play((rgb_t){0,255,0});
+	HAL_Delay(50);
+
+	int led_state = 0;
 	uint32_t can_tx_ts = 0;
 	int joint_idx = 0;
 	uint32_fmt_t can_tx_data = {0};
 	uint32_fmt_t can_rx_data = {0};
-	while (1)
+
+
+	while(1)
 	{
 		if(HAL_GetTick()>can_tx_ts)
 		{
-//			can_tx_header.StdId = chain[joint_idx].id;
-//			can_tx_data.d[3] = chain[joint_idx].led_cmd;
-			can_tx_header.StdId = 23;
-//			can_tx_data.d[3] = LED_OFF;
-			can_tx_data.v = 0x55555555;
-			HAL_CAN_AddTxMessage(&hcan1, &can_tx_header, can_tx_data.d, &can_tx_mailbox);
-			//joint_idx = (joint_idx + 1) % NUM_JOINTS;
-			can_tx_ts = HAL_GetTick() + 10;
+			led_state = (led_state + 1) % (NUM_JOINTS + 1);
+			switch(led_state)
+			{
+				case(0):
+				{
+					rgb_play((rgb_t){0,255,0});
+					chain[0].led_cmd = LED_OFF;
+					chain[1].led_cmd = LED_OFF;
+					break;
+				}
+				case(1):
+				{
+					rgb_play((rgb_t){0,0,0});
+					chain[0].led_cmd = LED_ON;
+					chain[1].led_cmd = LED_OFF;
+					break;
+				}
+				case(2):
+				{
+					rgb_play((rgb_t){0,0,0});
+					chain[0].led_cmd = LED_OFF;
+					chain[1].led_cmd = LED_ON;
+					break;
+				}
+				default:
+					break;
+			};
+
+			for(int i = 0; i < NUM_JOINTS; i++)
+			{
+				can_tx_header.StdId = chain[i].id;
+				can_tx_data.d[3]=chain[i].led_cmd;
+				HAL_CAN_AddTxMessage(&hcan1, &can_tx_header, can_tx_data.d, &can_tx_mailbox);
+				while(HAL_CAN_IsTxMessagePending(&hcan1, can_tx_mailbox));
+				while(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) < 1);
+				if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) != HAL_OK)
+				{}
+			}
+
+			can_tx_ts = HAL_GetTick()+333;
 		}
+
 		if(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) >= 1)
 		{
-			if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) == HAL_OK)
-			{}	//NOTE the rx header will contain the message ID
+			if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) != HAL_OK)
+			{}
 		}
+		//HAL_Delay(10);
 	}
-
 }
