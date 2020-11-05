@@ -73,7 +73,7 @@ int main(void)
 	rgb_play((rgb_t){0,255,0});
 	HAL_Delay(50);
 
-	int led_state = 0;
+	int led_state = NUM_JOINTS;
 	uint32_t can_tx_ts = 0;
 	uint32_fmt_t can_tx_data = {0};
 	uint32_fmt_t can_rx_data = {0};
@@ -82,7 +82,6 @@ int main(void)
 	{
 		if(HAL_GetTick()>can_tx_ts)
 		{
-			led_state = (led_state + 1) % (NUM_JOINTS + 1);
 			if(led_state == NUM_JOINTS)
 			{
 				rgb_play((rgb_t){0,255,0});
@@ -97,25 +96,34 @@ int main(void)
 					chain[led_state].led_cmd = LED_ON;
 			}
 
-			for(int i = 0; i < NUM_JOINTS; i++)
-			{
-				can_tx_header.StdId = chain[i].id;
-				can_tx_data.d[3]=chain[i].led_cmd;
-				HAL_CAN_AddTxMessage(&hcan1, &can_tx_header, can_tx_data.d, &can_tx_mailbox);
-				while(HAL_CAN_IsTxMessagePending(&hcan1, can_tx_mailbox));
-				while(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) < 1);
-				if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) != HAL_OK)
-				{}
-			}
-
+			led_state = (led_state + 1) % (NUM_JOINTS + 1);
 			can_tx_ts = HAL_GetTick()+150;
 		}
 
-		if(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) >= 1)
+		for(int i = 0; i < NUM_JOINTS; i++)
 		{
-			if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) != HAL_OK)
-			{}
+			can_tx_header.StdId = chain[i].id;
+			can_tx_data.d[3]=chain[i].led_cmd;
+			HAL_CAN_AddTxMessage(&hcan1, &can_tx_header, can_tx_data.d, &can_tx_mailbox);
+
+//				while(HAL_CAN_IsTxMessagePending(&hcan1, can_tx_mailbox));
+			for(uint32_t exp_ts = HAL_GetTick()+1; HAL_GetTick() < exp_ts;)
+			{
+				if(HAL_CAN_IsTxMessagePending(&hcan1,can_tx_mailbox) == 0)
+					break;
+			}
+//				while(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) < 1);
+			for(uint32_t exp_ts = HAL_GetTick()+1;  HAL_GetTick() < exp_ts;)
+			{
+				if(HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) >= 1)
+				{
+					if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) != HAL_OK)
+					{}
+					break;
+				}
+			}
 		}
+
 		//HAL_Delay(10);
 	}
 }
