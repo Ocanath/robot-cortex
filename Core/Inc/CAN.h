@@ -31,7 +31,9 @@ enum {
 
 extern CAN_TxHeaderTypeDef   can_tx_header;
 extern CAN_RxHeaderTypeDef   can_rx_header;
-extern uint32_t			can_tx_mailbox;
+extern uint32_t				can_tx_mailbox;
+extern floatsend_t 		can_tx_data;
+extern floatsend_t 		can_rx_data;
 
 void CAN_Init(void);
 

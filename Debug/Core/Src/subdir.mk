@@ -8,6 +8,7 @@ C_SRCS += \
 ../Core/Src/init.c \
 ../Core/Src/main.c \
 ../Core/Src/rgb.c \
+../Core/Src/sin-math.c \
 ../Core/Src/stm32f7xx_hal_msp.c \
 ../Core/Src/stm32f7xx_it.c \
 ../Core/Src/syscalls.c \
@@ -19,6 +20,7 @@ OBJS += \
 ./Core/Src/init.o \
 ./Core/Src/main.o \
 ./Core/Src/rgb.o \
+./Core/Src/sin-math.o \
 ./Core/Src/stm32f7xx_hal_msp.o \
 ./Core/Src/stm32f7xx_it.o \
 ./Core/Src/syscalls.o \
@@ -30,6 +32,7 @@ C_DEPS += \
 ./Core/Src/init.d \
 ./Core/Src/main.d \
 ./Core/Src/rgb.d \
+./Core/Src/sin-math.d \
 ./Core/Src/stm32f7xx_hal_msp.d \
 ./Core/Src/stm32f7xx_it.d \
 ./Core/Src/syscalls.d \
@@ -46,6 +49,8 @@ Core/Src/main.o: ../Core/Src/main.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DSTM32F730xx -DDEBUG -c -I../Core/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F7xx/Include -I../Drivers/CMSIS/Include -Og -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/main.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/rgb.o: ../Core/Src/rgb.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DSTM32F730xx -DDEBUG -c -I../Core/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F7xx/Include -I../Drivers/CMSIS/Include -Og -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/rgb.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
+Core/Src/sin-math.o: ../Core/Src/sin-math.c
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DSTM32F730xx -DDEBUG -c -I../Core/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F7xx/Include -I../Drivers/CMSIS/Include -Og -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/sin-math.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/stm32f7xx_hal_msp.o: ../Core/Src/stm32f7xx_hal_msp.c
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m7 -std=gnu11 -g3 -DUSE_HAL_DRIVER -DSTM32F730xx -DDEBUG -c -I../Core/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc -I../Drivers/STM32F7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F7xx/Include -I../Drivers/CMSIS/Include -Og -ffunction-sections -fdata-sections -Wall -fstack-usage -MMD -MP -MF"Core/Src/stm32f7xx_hal_msp.d" -MT"$@" --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
 Core/Src/stm32f7xx_it.o: ../Core/Src/stm32f7xx_it.c

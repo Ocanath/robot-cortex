@@ -1,0 +1,5 @@
+sin-math.c:50:7:atan2_approx	48	static
+sin-math.c:82:7:fmod_2pi	0	static
+sin-math.c:9:7:sin_fast	16	static
+sin-math.c:44:7:cos_fast	8	static
+sin-math.c:97:7:unwrap	16	static
