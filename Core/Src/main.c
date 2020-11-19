@@ -17,41 +17,41 @@ typedef struct joint
 	float q;
 	floatsend_t tau;
 	float qd;
-	uint8_t led_cmd;
+	uint8_t misc_cmd;
 }joint;
 
 #define NUM_JOINTS 3
 
 joint chain[NUM_JOINTS] = {
 		{
-			.id = 23,
-			.frame = 1,
-			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
-			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
-			.q = 0,
-			.tau = {.v = 0.f},
-			.qd = 0,
-			.led_cmd = LED_OFF
+				.id = 23,
+				.frame = 1,
+				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+				.q = 0,
+				.tau = {.v = 0.f},
+				.qd = 0,
+				.misc_cmd = LED_OFF
 		},
 		{
-			.id = 24,
-			.frame = 2,
-			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
-			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
-			.q = 0,
-			.tau = {.v = 0.f},
-			.qd = 0,
-			.led_cmd = LED_OFF
+				.id = 24,
+				.frame = 2,
+				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+				.q = 0,
+				.tau = {.v = 0.f},
+				.qd = 0,
+				.misc_cmd = LED_OFF
 		},
 		{
-			.id = 25,
-			.frame = 3,
-			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
-			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
-			.q = 0,
-			.tau = {.v = 0.f},
-			.qd = 0,
-			.led_cmd = LED_OFF
+				.id = 25,
+				.frame = 3,
+				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+				.q = 0,
+				.tau = {.v = 0.f},
+				.qd = 0,
+				.misc_cmd = LED_OFF
 		}
 };
 
@@ -60,7 +60,7 @@ void can_comm_misc(joint * chain, int num_joints)
 	for(int i = 0; i < num_joints; i++)
 	{
 		can_tx_header.StdId = 0x7FF - chain[i].id;
-		can_tx_data.d[3]=chain[i].led_cmd;
+		can_tx_data.d[3]=chain[i].misc_cmd;
 		HAL_CAN_AddTxMessage(&hcan1, &can_tx_header, can_tx_data.d, &can_tx_mailbox);
 
 		for(uint32_t exp_ts = HAL_GetTick()+1; HAL_GetTick() < exp_ts;)
@@ -128,7 +128,7 @@ int main(void)
 	MX_ADC1_Init();
 	HAL_Delay(100);
 	CAN_Init();
-//	MX_CAN1_Init();
+	//	MX_CAN1_Init();
 	MX_USART2_UART_Init();
 	MX_SPI1_Init();
 	MX_TIM1_Init();
@@ -137,11 +137,10 @@ int main(void)
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 
-	rgb_play((rgb_t){0,255,0});
-	HAL_Delay(500);
-
 	can_comm_misc(chain,NUM_JOINTS);
 	HAL_Delay(100);
+	chain[0].misc_cmd = DIS_UART_ENC;
+	can_comm_misc(chain,NUM_JOINTS);
 
 	int led_state = NUM_JOINTS;
 	uint32_t can_tx_ts = 0;
@@ -159,14 +158,14 @@ int main(void)
 			{
 				rgb_play((rgb_t){0,255,0});
 				for(int i = 0; i < NUM_JOINTS; i++)
-					chain[i].led_cmd = LED_OFF;
+					chain[i].misc_cmd = LED_OFF;
 			}
 			else
 			{
-					rgb_play((rgb_t){0,0,0});
-					for(int i = 0; i < NUM_JOINTS; i++)
-						chain[i].led_cmd = LED_OFF;
-					chain[led_state].led_cmd = LED_ON;
+				rgb_play((rgb_t){0,0,0});
+				for(int i = 0; i < NUM_JOINTS; i++)
+					chain[i].misc_cmd = LED_OFF;
+				chain[led_state].misc_cmd = LED_ON;
 			}
 
 			led_state = (led_state + 1) % (NUM_JOINTS + 1);
@@ -175,7 +174,9 @@ int main(void)
 		}
 		float t = ((float)HAL_GetTick())*.001f;
 		chain[0].qd = 3.f*sin_fast(t);
-		chain[0].tau.v = -2.f*(chain[0].qd - chain[0].q);
+		chain[0].tau.v = 5.f*(chain[0].qd - chain[0].q);
+		chain[1].qd = -chain[0].qd;
+		chain[1].tau.v = 5.f*(chain[1].qd-chain[1].q);
 		can_comm_motor(chain, NUM_JOINTS);
 
 
