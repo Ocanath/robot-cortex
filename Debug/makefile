@@ -47,7 +47,7 @@ all: robot-cortex.elf secondary-outputs
 
 # Tool invocations
 robot-cortex.elf: $(OBJS) $(USER_OBJS) D:\OcanathProj\workspace-cubeIDE\robot-cortex\STM32F730R8TX_FLASH.ld
-	arm-none-eabi-gcc -o "robot-cortex.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"D:\OcanathProj\workspace-cubeIDE\robot-cortex\STM32F730R8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="robot-cortex.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "robot-cortex.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"D:\OcanathProj\workspace-cubeIDE\robot-cortex\STM32F730R8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="robot-cortex.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

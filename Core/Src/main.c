@@ -2,6 +2,7 @@
 #include "CAN.h"
 #include "rgb.h"
 #include "sin-math.h"
+#include "uart-disp-tools.h"
 
 typedef struct mat4
 {
@@ -24,33 +25,33 @@ typedef struct joint
 
 joint chain[NUM_JOINTS] = {
 		{
-				.id = 23,
+				.id = 26,
 				.frame = 1,
 				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.q = 0,
 				.tau = {.v = 0.f},
-				.qd = 0,
+				.qd = -.77f,
 				.misc_cmd = LED_OFF
 		},
 		{
-				.id = 24,
+				.id = 27,
 				.frame = 2,
 				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.q = 0,
 				.tau = {.v = 0.f},
-				.qd = 0,
+				.qd = -2.45f,
 				.misc_cmd = LED_OFF
 		},
 		{
-				.id = 25,
+				.id = 28,
 				.frame = 3,
 				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.q = 0,
 				.tau = {.v = 0.f},
-				.qd = 0,
+				.qd = -2.90f,
 				.misc_cmd = LED_OFF
 		}
 };
@@ -139,8 +140,11 @@ int main(void)
 
 	can_comm_misc(chain,NUM_JOINTS);
 	HAL_Delay(100);
-	chain[0].misc_cmd = DIS_UART_ENC;
+	for(int i = 0; i < NUM_JOINTS; i++)
+		chain[i].misc_cmd = EN_UART_ENC;
 	can_comm_misc(chain,NUM_JOINTS);
+
+
 
 	int led_state = NUM_JOINTS;
 	uint32_t can_tx_ts = 0;
@@ -149,6 +153,10 @@ int main(void)
 	can_comm_motor(chain, NUM_JOINTS);
 
 	rgb_play((rgb_t){0,255,0});
+
+
+
+	uint32_t disp_ts = HAL_GetTick()+15;
 
 	while(1)
 	{
@@ -172,13 +180,38 @@ int main(void)
 			can_tx_ts = HAL_GetTick()+1000;
 			can_comm_misc(chain,NUM_JOINTS);
 		}
+
 		float t = ((float)HAL_GetTick())*.001f;
-		chain[0].qd = 3.f*sin_fast(t);
-		chain[0].tau.v = 5.f*(chain[0].qd - chain[0].q);
-		chain[1].qd = -chain[0].qd;
-		chain[1].tau.v = 5.f*(chain[1].qd-chain[1].q);
+//		chain[0].qd =
+		float f = 4.f;
+		chain[0].qd = -0.77f + .6f*sin_fast(t*f);
+		chain[1].qd = -2.45f + .6f*sin_fast(t*f-1.57f);
+		chain[2].qd = -1.90f + 1.4f*sin_fast(t*f-3.14f);
+
+		//chain[0].qd = 3.f*sin_fast(t);
+		for(int joint = 0; joint < NUM_JOINTS; joint++)
+		{
+			float sign = -1.f;	//sign inversion because of the gearbox
+			float tau = sign*75.f*(chain[joint].qd - chain[joint].q);
+			if(tau > 35.f)
+				tau = 35.f;
+			if(tau < -35.f)
+				tau = -35.f;
+			chain[joint].tau.v = tau;
+		}
 		can_comm_motor(chain, NUM_JOINTS);
 
+		if(HAL_GetTick()>disp_ts)
+		{
+			for(int i = 0; i < NUM_JOINTS; i++)
+			{
+				sprintf(gl_print_str, "q[%d] = %d, ", i, (int)(chain[i].q*1000));
+				print_string(gl_print_str);
+			}
+			print_string("\r\n");
+
+			disp_ts = HAL_GetTick()+15;
+		}
 
 	}
 }
