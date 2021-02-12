@@ -8,18 +8,7 @@
 #ifndef INC_CAN_H_
 #define INC_CAN_H_
 #include "init.h"
-
-typedef union
-{
-	uint32_t v;
-	uint8_t d[sizeof(uint32_t)];
-}uint32_fmt_t;
-
-typedef union floatsend_t
-{
-	float v;
-	uint8_t d[sizeof(float)];
-}floatsend_t;
+#include "joint.h"
 
 enum {
 	LED_ON = 0xDE,
@@ -36,5 +25,7 @@ extern floatsend_t 		can_tx_data;
 extern floatsend_t 		can_rx_data;
 
 void CAN_Init(void);
+void CAN_comm_motor(joint * chain, int num_joints);
+void CAN_comm_misc(joint * chain);
 
 #endif /* INC_CAN_H_ */
