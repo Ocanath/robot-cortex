@@ -16,12 +16,13 @@ typedef struct joint
 	mat4 h0_i;
 	mat4 him1_i;
 	float q;
+	float q_offset;	//track the phase offset present in the encoder signal
 	floatsend_t tau;
 	float qd;
 	uint8_t misc_cmd;
 }joint;
 
-#define NUM_JOINTS 3
+#define NUM_JOINTS 6
 
 joint chain[NUM_JOINTS] = {
 		{
@@ -30,6 +31,7 @@ joint chain[NUM_JOINTS] = {
 				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.q = 0,
+				.q_offset = 0,
 				.tau = {.v = 0.f},
 				.qd = -.77f,
 				.misc_cmd = LED_OFF
@@ -40,6 +42,7 @@ joint chain[NUM_JOINTS] = {
 				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.q = 0,
+				.q_offset = 0,
 				.tau = {.v = 0.f},
 				.qd = -2.45f,
 				.misc_cmd = LED_OFF
@@ -50,10 +53,46 @@ joint chain[NUM_JOINTS] = {
 				.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
 				.q = 0,
+				.q_offset = 0,
 				.tau = {.v = 0.f},
 				.qd = -2.90f,
 				.misc_cmd = LED_OFF
+		},
+		{
+			.id = 24,
+			.frame = 1,
+			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.q = 0,
+			.q_offset = 0,
+			.tau = {.v = 0.f},
+			.qd = 0,
+			.misc_cmd = LED_OFF
+		},
+		{
+			.id = 23,
+			.frame = 1,
+			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.q = 0,
+			.q_offset = 0,
+			.tau = {.v = 0.f},
+			.qd = 0,
+			.misc_cmd = LED_OFF
+		},
+		{
+			.id = 25,
+			.frame = 1,
+			.h0_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.him1_i = {{{1,0,0,0},{0,1,0,0},{0,0,1,0},{0,0,0,1}}},
+			.q = 0,
+			.q_offset = 0,
+			.tau = {.v = 0.f},
+			.qd = 0,
+			.misc_cmd = LED_OFF
 		}
+
+
 };
 
 void can_comm_misc(joint * chain, int num_joints)
