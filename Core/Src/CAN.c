@@ -149,7 +149,7 @@ void CAN_comm_motor(joint * chain, int num_joints)
 				if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_rx_header, can_rx_data.d) == HAL_OK)
 				{
 					if(can_rx_header.StdId == chain[i].id)
-						chain[i].q = can_rx_data.v;
+						chain[i].q = can_rx_data.v - chain[i].q_offset;
 					else
 					{
 						for(int sb = 0; sb < num_joints; sb++)	//sb = search base
